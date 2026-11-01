@@ -6,11 +6,12 @@ import { fetchStreams, type Stream } from './api'
 import { GROUPS, TIERS, frontDir, groupIndex, layoutSystem, type PlanetData, type SphereLayout } from './sphereLayout'
 import { SystemScene } from './sphereSystem'
 import { buildRoadNet } from './sphereCity'
-import { Atmosphere, Clouds, Houses, Planes, Props, Railways, Roads, SkyDome, Traffic, Water, Waterfalls, hashStr, makeGroundMaterial } from './sphereVisuals'
+import { Atmosphere, Clouds, Planes, Props, Railways, Roads, SkyDome, Water, Waterfalls, hashStr, makeGroundMaterial } from './sphereVisuals'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { CUBE, loadGLTF } from './sphereModels'
 import { Animals, Nature } from './sphereNature'
+import { Boats, ModelHouses, ModelTraffic } from './sphereCityModels'
 import { Residents, WorldChat, useWorldPeople, type WorldPeople } from './sphereResidents'
 
 const MAX_STREAMS = 5000
@@ -698,11 +699,12 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
       <Water R={R} color={layout.theme.water} />
       <Nature layout={layout} net={net} />
       <Animals layout={layout} />
+      <Boats layout={layout} />
       <Waterfalls layout={layout} />
       <Roads net={net} layout={layout} />
-      <Houses layout={layout} onPick={(i) => callbacks.current.onSelect(layout.plots[i].stream)} />
+      <ModelHouses layout={layout} onPick={(i) => callbacks.current.onSelect(layout.plots[i].stream)} />
       <Props net={net} layout={layout} />
-      <Traffic net={net} layout={layout} />
+      <ModelTraffic net={net} layout={layout} />
       <Railways R={R} ground={layout.ground} />
       <Clouds R={R} />
       <Planes R={R} />

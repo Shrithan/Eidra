@@ -283,8 +283,9 @@ export function Residents({ world, layout, self }: { world: WorldPeople; layout:
   const chars = [
     useBaked(CUBE('Character_Male_1'), 1.85, Math.PI), useBaked(CUBE('Character_Female_1'), 1.85, Math.PI),
     useBaked(CUBE('Character_Male_2'), 1.85, Math.PI), useBaked(CUBE('Character_Female_2'), 1.85, Math.PI),
+    ...'abcdefgh'.split('').map((l) => useBaked(`/models/blocky/character-${l}.glb`, 1.8, Math.PI)), // eslint-disable-line react-hooks/rules-of-hooks
   ]
-  const charMeshes = useRef<(THREE.InstancedMesh | null)[][]>([[], [], [], []])
+  const charMeshes = useRef<(THREE.InstancedMesh | null)[][]>(Array.from({ length: 12 }, () => []))
   const blank = useMemo(() => new THREE.CanvasTexture(document.createElement('canvas')), [])
   const names = useMemo(() => Array.from({ length: 22 }, () => {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: blank, transparent: true, depthWrite: false, fog: false }))
@@ -305,7 +306,7 @@ export function Residents({ world, layout, self }: { world: WorldPeople; layout:
     world.tick(dt)
     const k = 1 - Math.exp(-10 * dt)
     let n = 0
-    const counts = [0, 0, 0, 0]
+    const counts = new Array(chars.length).fill(0)
     const near: { r: Resident; d: number; pos: THREE.Vector3 }[] = []
     for (const r of world.residents.current.values()) {
       if (n >= MAX) break
@@ -318,7 +319,7 @@ export function Residents({ world, layout, self }: { world: WorldPeople; layout:
       t.m.makeBasis(t.right, r.P, t.zc)
       t.pos.copy(r.P).multiplyScalar(R + layout.ground(r.P) + r.alt)
       t.m.setPosition(t.pos)
-      if (r.kind === undefined) r.kind = [...r.id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 4
+      if (r.kind === undefined) r.kind = [...r.id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % chars.length
       const ti = r.kind
       if (chars[ti] && counts[ti] < MAX) {
         const idx = counts[ti]++

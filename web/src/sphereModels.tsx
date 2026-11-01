@@ -19,7 +19,7 @@ export const KEN = (name: string) => `/models/kenney/${name}.glb`
 
 /** One mesh of a model, flattened so it can be drawn thousands of times with an InstancedMesh. */
 export type BakedPart = { geometry: THREE.BufferGeometry; material: THREE.Material }
-export type Baked = { parts: BakedPart[]; height: number }
+export type Baked = { parts: BakedPart[]; height: number; native: THREE.Vector3 } // native = size of the model as authored
 
 const bakedCache = new Map<string, Baked>()
 
@@ -34,7 +34,7 @@ export function bake(gltf: GLTF, height: number, faceFix = 0): Baked {
   const box = new THREE.Box3().setFromObject(scene)
   const size = box.getSize(new V())
   const center = box.getCenter(new V())
-  const k = height / Math.max(1e-6, size.y)
+  const k = height > 0 ? height / Math.max(1e-6, size.y) : 1 // height 0 keeps the model's own size
   const parts: BakedPart[] = []
   scene.traverse((o) => {
     const m = o as THREE.Mesh
@@ -51,7 +51,7 @@ export function bake(gltf: GLTF, height: number, faceFix = 0): Baked {
     mat.metalness = 0
     parts.push({ geometry: g, material: mat })
   })
-  return { parts, height }
+  return { parts, height, native: size.clone() }
 }
 
 /** Load a model (once) and bake it. Returns null until it is ready. */
@@ -128,4 +128,22 @@ export function Scatter({ items }: { items: ScatterItem[] }) {
       {groups.map((g) => <InstancedModel key={g.url + g.height} url={g.url} height={g.height} items={g.items} />)}
     </group>
   )
+}
+
+/** Load and bake several models at once (at their own size, facing -Z when faceFix is π). Null until all are ready. */
+export function useBakedSet(urls: string[], faceFix = 0): Map<string, Baked> | null {
+  const key = urls.join(',') + '|' + faceFix
+  const [set, setSet] = useState<Map<string, Baked> | null>(null)
+  useEffect(() => {
+    let live = true
+    setSet(null)
+    Promise.all(urls.map(async (u) => {
+      const k = `${u}|0|${faceFix}`
+      let b = bakedCache.get(k)
+      if (!b) { b = bake(await loadGLTF(u), 0, faceFix); bakedCache.set(k, b) }
+      return [u, b] as const
+    })).then((r) => { if (live) setSet(new Map(r)) }).catch((e) => console.warn('[models] could not load a set', e))
+    return () => { live = false }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return set
 }
