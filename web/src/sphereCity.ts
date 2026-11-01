@@ -1,56 +1,43 @@
 import * as THREE from 'three'
-import { ConvexHull } from 'three/examples/jsm/math/ConvexHull.js'
 import type { SphereLayout } from './sphereLayout'
+import { roadSides } from './sphereLattice'
 
 const V = THREE.Vector3
 
 /**
- * The street network: the borders between neighbouring buildings. Every building sits in a cell of the Voronoi diagram of
- * the lattice, and the cell borders are the streets, so roads never cut through a building.
- * The Voronoi diagram is dual to the Delaunay triangulation, which on a sphere is the convex hull of the points.
+ * The street network: streets run along the edges of the plot grid (every second grid line, so plots sit in 2 x 2 blocks),
+ * only where there is a building next to them. Every plot has a street on two of its sides and its front door faces one,
+ * so every building is on a road and roads never cut through a plot. Long runs of plots share a straight street.
  */
 export type RoadNet = {
   verts: THREE.Vector3[] // unit vectors: street intersections
   edges: [number, number][] // streets between intersections
   adj: number[][]
   cells: number[][] // for each intersection, the buildings around it
-  valid: boolean[] // false for the huge outer cells of the diagram, which are wilderness, not streets
+  valid: boolean[] // true where streets meet
 }
 
 export function buildRoadNet(layout: SphereLayout): RoadNet {
-  const pts = layout.plots.map((p) => p.dir)
-  const index = new Map<THREE.Vector3, number>()
-  pts.forEach((p, i) => index.set(p, i))
-  const hull = new ConvexHull().setFromPoints(pts)
-  const faceId = new Map<unknown, number>()
-  const verts: THREE.Vector3[] = []
-  const cells: number[][] = []
-  hull.faces.forEach((f, i) => {
-    faceId.set(f, i)
-    verts.push(f.normal.clone().normalize()) // direction of the circumcentre of the triangle
-    const ids: number[] = []
-    let e = f.edge
-    do {
-      const vi = index.get(e.head().point)
-      if (vi !== undefined) ids.push(vi)
-      e = e.next
-    } while (e !== f.edge)
-    cells.push(ids)
-  })
-  const valid = verts.map((v, i) => cells[i].length > 0 && v.distanceTo(layout.plots[cells[i][0]].dir) * layout.R < layout.spacing * 0.85)
-  const edges: [number, number][] = []
+  const L = layout.lattice
+  const verts = L.corners
+  const cells: number[][] = verts.map(() => [])
   const adj: number[][] = verts.map(() => [])
-  hull.faces.forEach((f, i) => {
-    let e = f.edge
-    do {
-      const t = e.twin
-      if (t) {
-        const j = faceId.get(t.face)
-        if (j !== undefined && j > i && valid[i] && valid[j]) { edges.push([i, j]); adj[i].push(j); adj[j].push(i) }
-      }
-      e = e.next
-    } while (e !== f.edge)
+  const edges: [number, number][] = []
+  const seen = new Set<number>()
+  layout.plots.forEach((p, pi) => {
+    const c = L.cells[p.cell]
+    const sides = roadSides(c)
+    for (let k = 0; k < 4; k++) {
+      cells[c.corners[k]].push(pi)
+      if (!sides[k]) continue
+      const a = c.corners[k], b = c.corners[(k + 1) % 4]
+      const key = a < b ? a * verts.length + b : b * verts.length + a
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push([a, b]); adj[a].push(b); adj[b].push(a)
+    }
   })
+  const valid = verts.map((_, i) => adj[i].length > 0)
   return { verts, edges, adj, cells, valid }
 }
 

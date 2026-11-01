@@ -112,68 +112,13 @@ export function buildRibbons(segs: [THREE.Vector3, THREE.Vector3][], layout: Sph
   })
 }
 
-/**
- * A short side road from every building to the street network, so each hut, house and skyscraper is on a road.
- * A building uses the nearest of the intersections around it; one with none (out in the wilderness) reaches for the
- * nearest intersection within a few blocks.
- */
-export function useDriveways(net: RoadNet, layout: SphereLayout) {
-  return useMemo(() => {
-    const R = layout.R
-    const used = net.verts.map(() => false)
-    for (const [a, b] of net.edges) { used[a] = true; used[b] = true }
-    const around = layout.plots.map(() => [] as number[])
-    net.cells.forEach((ids, v) => { if (used[v] && net.valid[v]) for (const i of ids) around[i]?.push(v) })
-    const reach = layout.spacing * 7
-    const key = (x: number, y: number, z: number) => `${x},${y},${z}`
-    // points that already have a road: street intersections first, then each building as it gets connected
-    const nodes: { p: THREE.Vector3; dir: THREE.Vector3; off: number }[] = []
-    net.verts.forEach((v, i) => { if (used[i]) nodes.push({ p: v.clone().multiplyScalar(R), dir: v, off: 0 }) })
-    const segs: [THREE.Vector3, THREE.Vector3][] = []
-    const todo = layout.plots.map((_, i) => i)
-    const q = new V()
-    for (let round = 0; round < 8 && todo.length; round++) {
-      const grid = new Map<string, number[]>()
-      nodes.forEach((n, i) => {
-        const k = key(Math.floor(n.p.x / reach), Math.floor(n.p.y / reach), Math.floor(n.p.z / reach))
-        if (!grid.has(k)) grid.set(k, [])
-        grid.get(k)!.push(i)
-      })
-      const rest: number[] = [], added: number[] = []
-      for (const i of todo) {
-        const pl = layout.plots[i]
-        q.copy(pl.dir).multiplyScalar(R)
-        let best = -1, bd = Infinity
-        if (round === 0) for (const v of around[i]) { const d = q.distanceTo(net.verts[v].clone().multiplyScalar(R)); if (d < bd) { bd = d; best = nodes.findIndex((n) => n.dir === net.verts[v]) } }
-        if (best < 0) {
-          bd = Infinity
-          const cx = Math.floor(q.x / reach), cy = Math.floor(q.y / reach), cz = Math.floor(q.z / reach)
-          for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++)
-            for (const ni of grid.get(key(cx + dx, cy + dy, cz + dz)) ?? []) { const d = q.distanceTo(nodes[ni].p); if (d < bd) { bd = d; best = ni } }
-        }
-        if (best >= 0 && bd < reach) { {
-          // stop at the doorstep: the road starts and ends at each building's wall, not inside it
-          const n = nodes[best], len = Math.max(1e-3, bd), a = pl.dir.clone(), b = n.dir.clone()
-          const o1 = (pl.footprint * 0.5 + 1.5) / len, o2 = n.off / len
-          if (o1 + o2 < 0.9) segs.push([a.lerp(n.dir, o1).normalize(), b.lerp(pl.dir, o2).normalize()])
-        }; added.push(i) } else rest.push(i)
-      }
-      for (const i of added) nodes.push({ p: layout.plots[i].dir.clone().multiplyScalar(R), dir: layout.plots[i].dir, off: layout.plots[i].footprint * 0.5 + 1.5 })
-      if (!added.length) break
-      todo.length = 0; todo.push(...rest)
-    }
-    return { geos: buildRibbons(segs, layout, 0.6), count: segs.length }
-  }, [net, layout])
-}
-
 export function Highways({ net, layout }: { net: RoadNet; layout: SphereLayout }) {
   const { geos, count } = useHighways(net, layout)
-  const drive = useDriveways(net, layout)
-  if (import.meta.env.DEV) Object.assign(window, { __highways: count, __driveways: drive.count, __plots: layout.plots.length, __spacing: layout.spacing })
+  if (import.meta.env.DEV) Object.assign(window, { __highways: count, __plots: layout.plots.length, __spacing: layout.spacing })
   const colors = ['#e1d9c4', '#565a68', '#f2e27a']
   return (
     <group>
-      {[...geos, ...drive.geos].map((g, i) => (
+      {geos.map((g, i) => (
         <mesh key={i} geometry={g} raycast={() => null}>
           <meshStandardMaterial color={colors[i % 3]} roughness={1} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>

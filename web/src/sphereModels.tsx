@@ -51,7 +51,9 @@ export function bake(gltf: GLTF, height: number, faceFix = 0): Baked {
     mat.metalness = 0
     parts.push({ geometry: g, material: mat })
   })
-  return { parts, height, native: size.clone() }
+  const native = size.clone()
+  if (Math.abs(Math.sin(faceFix)) > 0.7) native.set(size.z, size.y, size.x) // a quarter turn swaps width and length
+  return { parts, height, native }
 }
 
 /** Load a model (once) and bake it. Returns null until it is ready. */

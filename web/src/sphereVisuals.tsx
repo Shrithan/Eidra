@@ -240,7 +240,7 @@ export function Roads({ net, layout }: { net: RoadNet; layout: SphereLayout }) {
   const usable = useMemo(() => net.edges.filter(([a, b]) => net.verts[a].distanceTo(net.verts[b]) * R > 1.5), [net, R])
   const usableVerts = useMemo(() => net.verts.map((_, i) => i).filter((i) => net.valid[i]), [net])
   // streets are ribbons that follow the ground's own curve (sampled every few metres), not straight slabs
-  const ribbons = useMemo(() => buildRibbons(usable.map(([a, b]) => [net.verts[a], net.verts[b]] as [THREE.Vector3, THREE.Vector3]), layout, 0.9, 9), [usable, net, layout])
+  const ribbons = useMemo(() => buildRibbons(usable.map(([a, b]) => [net.verts[a], net.verts[b]] as [THREE.Vector3, THREE.Vector3]), layout, 1.3, 9), [usable, net, layout])
 
   useLayoutEffect(() => {
     const q = new THREE.Quaternion(), p = new V(), sc = new V(), mm = new THREE.Matrix4()
@@ -249,10 +249,10 @@ export function Roads({ net, layout }: { net: RoadNet; layout: SphereLayout }) {
       const h = R + Math.max(layout.ground(v), 0.35)
       q.setFromUnitVectors(Y, v)
       p.copy(v).multiplyScalar(h + 0.28)
-      mm.compose(p, q, sc.set(4.8, 0.1, 4.8))
+      mm.compose(p, q, sc.set(5.9, 0.1, 5.9))
       discRoad.current!.setMatrixAt(i, mm)
       p.copy(v).multiplyScalar(h + 0.2)
-      mm.compose(p, q, sc.set(6.6, 0.1, 6.6))
+      mm.compose(p, q, sc.set(8.4, 0.1, 8.4))
       discKerb.current!.setMatrixAt(i, mm)
     })
     for (const r of [discRoad, discKerb]) {
@@ -261,11 +261,12 @@ export function Roads({ net, layout }: { net: RoadNet; layout: SphereLayout }) {
     }
   }, [net, layout, R, usableVerts])
 
-  const std = (c: string) => <meshStandardMaterial color={c} roughness={1} flatShading polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+  const std = (c: string) => <meshStandardMaterial color={c} roughness={1} flatShading side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
   return (
     <group>
       <mesh geometry={ribbons[0]} raycast={() => null}>{std('#e1d9c4')}</mesh>
       <mesh geometry={ribbons[1]} raycast={() => null}>{std('#565a68')}</mesh>
+      <mesh geometry={ribbons[2]} raycast={() => null}>{std('#f2e27a')}</mesh>
       <instancedMesh ref={discKerb} args={[disc, undefined, usableVerts.length]} raycast={() => null}>{std('#e1d9c4')}</instancedMesh>
       <instancedMesh ref={discRoad} args={[disc, undefined, usableVerts.length]} raycast={() => null}>{std('#565a68')}</instancedMesh>
     </group>

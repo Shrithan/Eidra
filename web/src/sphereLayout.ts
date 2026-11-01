@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Stream } from './api'
 import { createTerrain, type Terrain } from './sphereTerrain'
+import { makeLattice, roadSides, type Lattice } from './sphereLattice'
 import { THEMES, type Theme } from './sphereThemes'
 
 /** Genre groups ("continents"). The order is the order they appear along the space-filling curve, so neighbours are related. */
@@ -74,6 +75,8 @@ export type Plot = {
   footprint: number // metres
   height: number // metres
   yaw: number
+  cell: number // index of the lattice cell this plot stands on
+  cellSize: number // metres across that cell
   country: number // index into COUNTRY_COLORS: one of the 12 biggest games on the planet, or COUNTRY_LIMIT for "other games"
 }
 
@@ -92,6 +95,7 @@ export type SphereLayout = {
   theme: Theme
   /** Metres above the base radius at a direction: sea level 0, flat cities, hills and mountains. */
   ground: (d: THREE.Vector3) => number
+  lattice: Lattice
   plots: Plot[]
   groups: Territory[]
   categories: Territory[]
@@ -153,7 +157,20 @@ function mulberry32(seed: number) {
  * a space-filling curve over the city districts, so every genre is a continent and every game a country, with
  * wilderness (mountains, lakes, forests) between the districts. Points are jittered, so streets are organic, not a grid.
  */
-export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THEMES[0], seed = 0): SphereLayout {
+/** The yaw that turns a building's front door towards one of the streets around its cell. */
+function doorYaw(lattice: Lattice, cellIdx: number, pick: number) {
+  const c = lattice.cells[cellIdx]
+  const sides = roadSides(c)
+  const open = [0, 1, 2, 3].filter((k) => sides[k])
+  const k = open[Math.floor(pick * open.length) % open.length]
+  const mid = lattice.corners[c.corners[k]].clone().add(lattice.corners[c.corners[(k + 1) % 4]]).normalize()
+  const up = c.centre
+  const t = mid.clone().sub(up.clone().multiplyScalar(mid.dot(up))).normalize()
+  const ref = new THREE.Vector3(0, 0, 1).applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up))
+  return Math.atan2(new THREE.Vector3().crossVectors(ref, t).dot(up), ref.dot(t))
+}
+
+export function layoutSphere(streams: Stream[], spacing = 60, theme: Theme = THEMES[0], seed = 0): SphereLayout {
   const buckets = GROUPS.map(() => new Map<string, Stream[]>())
   for (const s of streams) {
     const g = groupIndex(s.game)
@@ -171,31 +188,35 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
   })
 
   const n = flat.length
-  // a bit under 40% of the planet is city, the rest is sea, beaches and mountains, so there are 2.6 times as many lattice points as buildings
-  const M = Math.max(2, Math.round(n * 2.6))
+  // a bit under 40% of the planet is city, the rest is sea, beaches and mountains, so there are about 2.6 times as many cells as buildings
+  const N = Math.max(2, 2 * Math.ceil(Math.sqrt((n * 2.6) / 6) / 2))
+  const M = 6 * N * N
   const R = Math.max(260, Math.sqrt((M * spacing * spacing) / (4 * Math.PI)))
   // every planet's ground mesh has facets about the same size, and a mountain shelf about as tall as a facet is wide, so mountains look alike everywhere
   const detail = Math.min(190, Math.max(120, Math.round(R / 13.5)))
   const facet = (R * 1.05) / (detail + 1)
   const terrain = createTerrain({ seed, theme, scale: R / 1580, step: Math.max(16, facet * 1.1) })
-  const rng = mulberry32(20261101 + seed * 977)
+  const lattice = makeLattice(N, R)
 
-  const golden = Math.PI * (3 - Math.sqrt(5))
-  const points = Array.from({ length: M }, (_, i) => {
-    const y = 1 - (2 * (i + 0.5)) / M
-    const r = Math.sqrt(Math.max(0, 1 - y * y))
-    const a = i * golden
-    const p = new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r)
-    // nudge every point in a random direction so the districts do not look like a perfect lattice
-    const t1 = new THREE.Vector3().crossVectors(p, Math.abs(p.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0)).normalize()
-    const t2 = new THREE.Vector3().crossVectors(p, t1)
-    const ang = rng() * Math.PI * 2, rad = (spacing / R) * 0.42 * Math.sqrt(rng())
-    return p.addScaledVector(t1, Math.cos(ang) * rad).addScaledVector(t2, Math.sin(ang) * rad).normalize()
-  })
-  // the n most "urban" points become the city districts; the rest of the planet stays wild
-  const scored = points.map((p) => ({ p, u: terrain.urban(p) })).sort((a, b) => b.u - a.u).slice(0, n)
+  // the n most "urban" cells become the city districts; the rest of the planet stays wild
+  const scored = lattice.cells.map((c, idx) => ({ idx, p: c.centre, u: terrain.urban(c.centre) })).sort((a, b) => b.u - a.u).slice(0, n)
   terrain.setThreshold(n ? scored[n - 1].u : 0)
-  const keyed = scored.map(({ p }) => ({ p, k: curveKey(p) })).sort((a, b) => a.k - b.k)
+  const keyed = scored.map(({ p, idx }) => ({ p, idx, k: curveKey(p) })).sort((a, b) => a.k - b.k)
+
+  // inside each game's district the busiest streams take the middle and the smallest the outskirts, like a city growing from its centre
+  const spot = keyed.slice()
+  for (let a = 0; a < n;) {
+    let b = a
+    while (b < n && flat[b].group === flat[a].group && flat[b].category === flat[a].category) b++
+    if (b - a > 2) {
+      const mid = new THREE.Vector3()
+      for (let k = a; k < b; k++) mid.add(keyed[k].p)
+      mid.normalize()
+      const ring = keyed.slice(a, b).sort((x, y) => y.p.dot(mid) - x.p.dot(mid))
+      for (let k = a; k < b; k++) spot[k] = ring[k - a]
+    }
+    a = b
+  }
 
   const plots: Plot[] = flat.map((f, i) => {
     const tier = tierOf(sizeViewers(f.stream))
@@ -206,10 +227,12 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
       tier,
       group: f.group,
       category: f.category,
-      dir: keyed[i].p,
+      dir: spot[i].p,
       footprint: Math.min(spacing * 0.36, T.footprint[0] + (T.footprint[1] - T.footprint[0]) * pos),
       height: T.height[0] + (T.height[1] - T.height[0]) * pos,
-      yaw: hash(f.stream.login) * Math.PI * 2,
+      yaw: doorYaw(lattice, spot[i].idx, hash(f.stream.login)),
+      cell: spot[i].idx,
+      cellSize: lattice.cells[spot[i].idx].size,
       country: f.country,
     }
   })
@@ -243,7 +266,7 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
   }))
   categories.sort((a, b) => b.viewers - a.viewers)
 
-  return { R, detail, spacing, terrain, theme, ground: (d) => terrain.elevation(d), plots, groups, categories, countries, byLogin: new Map(plots.map((p, i) => [p.stream.login, i])) }
+  return { R, detail, spacing, terrain, lattice, theme, ground: (d) => terrain.elevation(d), plots, groups, categories, countries, byLogin: new Map(plots.map((p, i) => [p.stream.login, i])) }
 }
 
 /** The tangent direction the front door of a building faces (buildings are rotated by `yaw` about their own up). */
@@ -261,6 +284,6 @@ export function layoutSystem(streams: Stream[]): PlanetData[] {
   for (const s of streams) byGroup[groupIndex(s.game)].push(s)
   return GROUPS.map((group, index) => {
     const theme = THEMES.find((t) => t.id === group.id) ?? THEMES[THEMES.length - 1]
-    return { index, group, theme, layout: layoutSphere(byGroup[index], 56, theme, index + 1) }
+    return { index, group, theme, layout: layoutSphere(byGroup[index], 60, theme, index + 1) }
   })
 }
