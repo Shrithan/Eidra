@@ -1,0 +1,97 @@
+:root {
+  --bg: #0e0e10; --panel: #18181b; --line: #2a2a2e; --text: #efeff1; --quiet: #adadb8; --accent: #9146ff;
+  font-family: Inter, system-ui, sans-serif; color: var(--text); background: var(--bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+.home { position: fixed; inset: 0; }
+.globe { position: absolute; inset: 0; }
+.tip { background: #000c; padding: 6px 8px; border-radius: 6px; font-size: 12px; }
+.top { position: absolute; top: 0; left: 0; right: 0; display: flex; gap: 16px; align-items: center; padding: 14px 20px; pointer-events: none; }
+.top > * { pointer-events: auto; }
+.top h1 { margin: 0; font-size: 20px; letter-spacing: .5px; }
+.search { flex: 0 1 320px; background: #0008; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; outline: none; }
+.search:focus { border-color: var(--accent); }
+.login, .who { margin-left: auto; background: var(--accent); border-radius: 8px; padding: 8px 14px; text-decoration: none; font-weight: 600; color: #fff; }
+.who { background: var(--panel); border: 1px solid var(--line); }
+
+.list { position: absolute; top: 68px; left: 20px; bottom: 20px; width: 260px; overflow-y: auto; background: #18181bd9; border: 1px solid var(--line); border-radius: 12px; backdrop-filter: blur(8px); }
+.list-head { padding: 12px 14px; font-weight: 600; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.row { display: grid; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 10px 14px; gap: 2px; }
+.row span, .row small { color: var(--quiet); font-size: 12px; }
+.row:hover, .row.on { background: #9146ff26; }
+
+.card { position: absolute; right: 24px; bottom: 24px; width: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.card h2 { margin: 0 0 6px; }
+.card p { margin: 4px 0; color: var(--quiet); }
+.card .meta { font-size: 12px; }
+.card .x { position: absolute; top: 8px; right: 10px; background: none; border: 0; font-size: 20px; color: var(--quiet); }
+.go { margin-top: 12px; width: 100%; background: var(--accent); border: 0; border-radius: 8px; padding: 10px; font-weight: 600; color: #fff; }
+
+.pill { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #9146ff33; color: #d4b8ff; }
+.pill.offline { background: #ffb02e26; color: #ffd18a; }
+.pill.live { background: #00c85326; color: #7ee0a4; }
+
+.theatre { position: fixed; inset: 0; display: flex; flex-direction: column; }
+.bar { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.bar-title { flex: 1; color: var(--quiet); }
+.ghost { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; }
+.stage { flex: 1; display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+.main { display: flex; flex-direction: column; gap: 12px; padding: 16px; min-height: 0; overflow-y: auto; }
+.screen { aspect-ratio: 16 / 9; width: 100%; max-height: 52vh; align-self: center; background: #000; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.screen iframe { width: 100%; height: 100%; border: 0; }
+
+.floor { position: relative; flex: 1; min-height: 260px; background: radial-gradient(ellipse at 50% 0%, #9146ff22, transparent 70%), #121214; border: 1px solid var(--line); border-radius: 10px; }
+.floor-hint { position: absolute; bottom: 8px; left: 12px; font-size: 11px; color: var(--quiet); }
+.seat { position: absolute; width: 34px; height: 30px; transform: translate(-50%, -50%); background: #26262c; border: 1px solid #3a3a42; border-radius: 8px 8px 4px 4px; padding: 0; }
+.seat:hover:not(.taken) { border-color: var(--accent); background: #9146ff33; }
+.seat.taken { cursor: default; opacity: .5; }
+.avatar { position: absolute; transform: translate(-50%, -62%); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #111; pointer-events: none; transition: left .25s, top .25s; }
+.avatar.self { outline: 2px solid #fff; }
+.avatar em { position: absolute; top: 32px; font-style: normal; font-size: 10px; color: var(--quiet); white-space: nowrap; }
+.float { position: absolute; bottom: 28px; font-style: normal; font-size: 24px; animation: rise 2.5s ease-out forwards; }
+@keyframes rise { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+
+.emotes { display: flex; gap: 8px; justify-content: center; }
+.emotes button { font-size: 22px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.emotes button:hover { border-color: var(--accent); }
+
+.chat { display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); min-height: 0; }
+.chat-title { padding: 12px 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.chat-log { flex: 1; overflow-y: auto; padding: 10px 14px; display: grid; align-content: start; gap: 6px; font-size: 13px; }
+.line.system { color: var(--quiet); font-size: 12px; }
+.line small { color: var(--quiet); }
+.chat form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+.chat input { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; outline: none; }
+.chat input:focus { border-color: var(--accent); }
+.chat form button { background: var(--accent); border: 0; border-radius: 8px; padding: 0 14px; font-weight: 600; color: #fff; }
+
+@media (max-width: 800px) {
+  .list { display: none; }
+  .stage { grid-template-columns: 1fr; grid-template-rows: auto 260px; overflow-y: auto; }
+}
+
+/* 3D world */
+.main { padding: 0; overflow: hidden; }
+.world { position: relative; flex: 1; min-height: 0; background: #0a0a12; }
+.world canvas { display: block; }
+.hint { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: #000a; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 12px; color: var(--quiet); pointer-events: none; white-space: nowrap; }
+.hint b { color: var(--text); }
+.world .emotes { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); }
+.nametag { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: #000a; color: #fff; white-space: nowrap; }
+.emote3d { display: block; font-size: 30px; animation: rise3d 2.5s ease-out forwards; }
+@keyframes rise3d { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-60px); opacity: 0; } }
+
+.crosshair { position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #fffc; box-shadow: 0 0 0 1px #0008; pointer-events: none; }
+.bubble { max-width: 180px; padding: 5px 9px; border-radius: 10px; background: #fff; color: #111; font-size: 11px; line-height: 1.25; text-align: center; box-shadow: 0 2px 8px #0006; animation: pop .15s ease-out; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.hype { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); padding: 8px 18px; border-radius: 999px; background: linear-gradient(90deg, #ff7a18, #9146ff); font-weight: 700; pointer-events: none; animation: hype 3.5s ease-out forwards; }
+@keyframes hype { 0% { opacity: 0; transform: translate(-50%, -10px) scale(.8); } 10% { opacity: 1; transform: translate(-50%, 0) scale(1.05); } 85% { opacity: 1; } 100% { opacity: 0; } }
+.hint { white-space: normal; text-align: center; max-width: 92%; line-height: 1.4; border-radius: 14px; }
+.notice { position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%); max-width: 80%; padding: 6px 12px; border-radius: 10px; background: #3a2a05e6; color: #ffd18a; font-size: 11px; text-align: center; pointer-events: none; }
+.looking, .looking * { cursor: none !important; }
+.worldroot { position: absolute; inset: 0; isolation: isolate; overflow: hidden; }
+.screenlayer { position: absolute; top: 0; left: 0; z-index: 0; overflow: hidden; pointer-events: none; }

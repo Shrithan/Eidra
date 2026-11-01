@@ -1,0 +1,41 @@
+.sphere { position: absolute; inset: 0; background: #05050c; }
+.sphere canvas { display: block; }
+.sphere-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #adadb8; font-size: 15px; }
+.sphere-hud { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; max-width: 92%; padding: 8px 14px; border-radius: 12px; background: #000b; border: 1px solid #2a2a2e; color: #adadb8; font-size: 12px; text-align: center; z-index: 5; }
+.sphere-hud b { color: #efeff1; }
+.sphere-hud button { background: #9146ff; border: 0; border-radius: 8px; padding: 6px 12px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.sphere-near { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); display: grid; gap: 2px; justify-items: center; padding: 10px 16px; border-radius: 12px; background: #16101fe6; border: 1px solid #9146ff; color: #efeff1; z-index: 5; text-align: center; }
+.sphere-near span { color: #adadb8; font-size: 12px; }
+.sphere-near em { color: #bf94ff; font-style: normal; font-weight: 600; font-size: 12px; }
+.sphere-note { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: #3a2a05e6; color: #ffd18a; font-size: 12px; z-index: 5; }
+.sphere-legend { position: absolute; top: 72px; right: 20px; display: grid; gap: 4px; padding: 10px 12px; border-radius: 12px; background: #0009; border: 1px solid #2a2a2e; font-size: 12px; color: #efeff1; z-index: 4; pointer-events: none; }
+.sphere-legend-title { color: #adadb8; margin-bottom: 2px; }
+.sphere-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; }
+.sphere-legend small { color: #adadb8; margin-left: 8px; }
+
+.world-chat { position: absolute; left: 20px; bottom: 44px; width: 300px; display: grid; grid-template-rows: auto minmax(0, 140px) auto; border-radius: 12px; background: #0a0814d9; border: 1px solid #2a2a3a; z-index: 6; overflow: hidden; backdrop-filter: blur(6px); }
+.wc-title { padding: 8px 12px; font-size: 12px; font-weight: 600; color: #efeff1; border-bottom: 1px solid #2a2a3a; display: flex; justify-content: space-between; }
+.wc-title small { color: #8f8fa3; font-weight: 400; }
+.wc-log { overflow-y: auto; padding: 8px 12px; font-size: 12px; color: #d4d4de; display: grid; align-content: start; gap: 4px; }
+.wc-log b { color: #bf94ff; }
+.wc-self b { color: #5aa9ff; }
+.wc-sys { color: #8f8fa3; font-style: italic; }
+.world-chat form { padding: 6px; border-top: 1px solid #2a2a3a; }
+.world-chat input { width: 100%; background: #12101c; border: 1px solid #2a2a3a; border-radius: 8px; padding: 7px 10px; color: #efeff1; outline: none; font-size: 12px; }
+.world-chat input:focus { border-color: #9146ff; }
+@media (max-width: 800px) { .world-chat { display: none; } }
+
+.sphere-hud button.alt { background: #2a2a3a; border: 1px solid #3a3a4e; }
+.sphere-warp { position: absolute; inset: 0; display: grid; place-items: center; background: #05050cdd; color: #efeff1; font-size: 22px; font-weight: 700; z-index: 20; pointer-events: none; animation: warp .9s ease-out forwards; }
+@keyframes warp { 0% { opacity: 0; } 25% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; } }
+.sphere-legend { pointer-events: auto; }
+.sphere-legend button { all: unset; display: flex; align-items: center; gap: 0; cursor: pointer; padding: 3px 6px; margin: 0 -6px; border-radius: 6px; color: #efeff1; font-size: 12px; }
+.sphere-legend button:hover { background: #ffffff18; }
+.sphere-legend button.on { background: #9146ff33; }
+.sphere-legend button small { margin-left: auto; padding-left: 14px; color: #adadb8; }
+
+.sphere-near .tier { color: #bf94ff; font-weight: 600; }
+.sphere-tiers { position: absolute; top: 330px; right: 20px; display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; background: #0009; border: 1px solid #2a2a2e; font-size: 12px; color: #efeff1; z-index: 4; pointer-events: none; min-width: 170px; }
+.sphere-tiers div:not(.sphere-legend-title) { display: flex; gap: 8px; align-items: baseline; }
+.sphere-tiers span { color: #adadb8; }
+.sphere-tiers small { margin-left: auto; color: #adadb8; }

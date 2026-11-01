@@ -1,0 +1,10 @@
+{
+  "name": "watchworld",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix server ci && npm --prefix web ci",
+    "dev": "node server/node_modules/concurrently/dist/bin/index.js --kill-others --names server,web \"npm --prefix server run dev\" \"npm --prefix web run dev -- --strictPort\"",
+    "build": "npm --prefix server run build && npm --prefix web run build",
+    "test:e2e": "npm --prefix server run test:e2e"
+  }
+}
