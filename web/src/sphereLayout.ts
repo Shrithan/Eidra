@@ -49,6 +49,9 @@ export const TIERS: Tier[] = [
   { id: 'skyscraper', name: 'Skyscraper', min: 1000, footprint: [17, 20], height: [38, 52] },
 ]
 
+/** What a stream's building is sized by: its usual audience, not this minute's spike. */
+export const sizeViewers = (s: Stream) => s.avgViewers ?? s.viewers
+
 export function tierOf(viewers: number): number {
   let t = 0
   for (let i = 0; i < TIERS.length; i++) if (viewers >= TIERS[i].min) t = i
@@ -71,12 +74,19 @@ export type Plot = {
   footprint: number // metres
   height: number // metres
   yaw: number
+  country: number // index into COUNTRY_COLORS: one of the 12 biggest games on the planet, or COUNTRY_LIMIT for "other games"
 }
 
-export type Territory = { group: number; category: string | null; centroid: THREE.Vector3; count: number; viewers: number }
+/** Only the busiest games get a country of their own, so they can be told apart from orbit; every other game shares one. */
+export const COUNTRY_LIMIT = 12
+export const COUNTRY_COLORS = ['#e6194b', '#f58231', '#ffe119', '#bfef45', '#3cb44b', '#42d4f4', '#4363d8', '#911eb4', '#f032e6', '#fabed4', '#9a6324', '#aaffc3', '#8c91a0']
+export type Country = { index: number; name: string; color: string; centroid: THREE.Vector3; count: number; viewers: number }
+
+export type Territory = { group: number; category: string | null; centroid: THREE.Vector3; count: number; viewers: number; country: number }
 
 export type SphereLayout = {
   R: number
+  detail: number // subdivisions of the ground mesh
   spacing: number
   terrain: Terrain
   theme: Theme
@@ -85,6 +95,7 @@ export type SphereLayout = {
   plots: Plot[]
   groups: Territory[]
   categories: Territory[]
+  countries: Country[]
   byLogin: Map<string, number>
 }
 
@@ -151,19 +162,22 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
     if (!m.has(cat)) m.set(cat, [])
     m.get(cat)!.push(s)
   }
-  const flat: { stream: Stream; group: number; category: string }[] = []
+  const flat: { stream: Stream; group: number; category: string; country: number }[] = []
   buckets.forEach((cats, group) => {
     const ordered = [...cats.entries()]
-      .map(([category, list]) => ({ category, list: list.sort((a, b) => b.viewers - a.viewers), total: list.reduce((n, s) => n + s.viewers, 0) }))
+      .map(([category, list]) => ({ category, list: list.sort((a, b) => sizeViewers(b) - sizeViewers(a)), total: list.reduce((n, s) => n + sizeViewers(s), 0) }))
       .sort((a, b) => b.total - a.total)
-    for (const c of ordered) for (const stream of c.list) flat.push({ stream, group, category: c.category })
+    ordered.forEach((c, rank) => { for (const stream of c.list) flat.push({ stream, group, category: c.category, country: Math.min(rank, COUNTRY_LIMIT) }) })
   })
 
   const n = flat.length
-  // about half of the planet is city, the other half is nature, so there are twice as many lattice points as buildings
-  const M = Math.max(2, n * 2)
+  // a bit under 40% of the planet is city, the rest is sea, beaches and mountains, so there are 2.6 times as many lattice points as buildings
+  const M = Math.max(2, Math.round(n * 2.6))
   const R = Math.max(260, Math.sqrt((M * spacing * spacing) / (4 * Math.PI)))
-  const terrain = createTerrain({ seed, theme, scale: R / 1580 })
+  // every planet's ground mesh has facets about the same size, and a mountain shelf about as tall as a facet is wide, so mountains look alike everywhere
+  const detail = Math.min(190, Math.max(120, Math.round(R / 13.5)))
+  const facet = (R * 1.05) / (detail + 1)
+  const terrain = createTerrain({ seed, theme, scale: R / 1580, step: Math.max(16, facet * 1.1) })
   const rng = mulberry32(20261101 + seed * 977)
 
   const golden = Math.PI * (3 - Math.sqrt(5))
@@ -184,8 +198,8 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
   const keyed = scored.map(({ p }) => ({ p, k: curveKey(p) })).sort((a, b) => a.k - b.k)
 
   const plots: Plot[] = flat.map((f, i) => {
-    const tier = tierOf(f.stream.viewers)
-    const pos = tierPosition(f.stream.viewers, tier)
+    const tier = tierOf(sizeViewers(f.stream))
+    const pos = tierPosition(sizeViewers(f.stream), tier)
     const T = TIERS[tier]
     return {
       stream: f.stream,
@@ -196,6 +210,7 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
       footprint: Math.min(spacing * 0.36, T.footprint[0] + (T.footprint[1] - T.footprint[0]) * pos),
       height: T.height[0] + (T.height[1] - T.height[0]) * pos,
       yaw: hash(f.stream.login) * Math.PI * 2,
+      country: f.country,
     }
   })
 
@@ -214,15 +229,21 @@ export function layoutSphere(streams: Stream[], spacing = 56, theme: Theme = THE
     catIdx.get(key)!.push(i)
   })
   const groups: Territory[] = [...groupIdx.entries()].map(([group, idx]) => ({
-    group, category: null, centroid: centroidOf(idx), count: idx.length, viewers: idx.reduce((s, i) => s + plots[i].stream.viewers, 0),
+    group, category: null, centroid: centroidOf(idx), count: idx.length, viewers: idx.reduce((s, i) => s + plots[i].stream.viewers, 0), country: -1,
   }))
   const categories: Territory[] = [...catIdx.entries()].map(([, idx]) => ({
     group: plots[idx[0]].group, category: plots[idx[0]].category, centroid: centroidOf(idx), count: idx.length,
-    viewers: idx.reduce((s, i) => s + plots[i].stream.viewers, 0),
+    viewers: idx.reduce((s, i) => s + plots[i].stream.viewers, 0), country: plots[idx[0]].country,
+  }))
+  const countryIdx = new Map<number, number[]>()
+  plots.forEach((p, i) => { if (!countryIdx.has(p.country)) countryIdx.set(p.country, []); countryIdx.get(p.country)!.push(i) })
+  const countries: Country[] = [...countryIdx.entries()].sort((a, b) => a[0] - b[0]).map(([index, idx]) => ({
+    index, color: COUNTRY_COLORS[index], centroid: centroidOf(idx), count: idx.length, viewers: idx.reduce((s, i) => s + plots[i].stream.viewers, 0),
+    name: index >= COUNTRY_LIMIT ? 'Other games' : plots[idx[0]].category,
   }))
   categories.sort((a, b) => b.viewers - a.viewers)
 
-  return { R, spacing, terrain, theme, ground: (d) => terrain.elevation(d), plots, groups, categories, byLogin: new Map(plots.map((p, i) => [p.stream.login, i])) }
+  return { R, detail, spacing, terrain, theme, ground: (d) => terrain.elevation(d), plots, groups, categories, countries, byLogin: new Map(plots.map((p, i) => [p.stream.login, i])) }
 }
 
 /** The tangent direction the front door of a building faces (buildings are rotated by `yaw` about their own up). */

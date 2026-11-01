@@ -5,6 +5,7 @@ import WatchSphere from './WatchSphere'
 import Theatre from './Theatre'
 import PlaybackPanel from './integration/PlaybackPanel'
 import LocationPanel from './integration/LocationPanel'
+import OmniSearch from './OmniSearch'
 import WorldPicker from './integration/WorldPicker'
 import { FALLBACK_WORLDS, placeLabel, worldOf, type World } from './integration/worlds'
 import { fetchMe, fetchStreams, fetchPlanets, logout, type Me, type Stream } from './api'
@@ -14,7 +15,7 @@ const WATCHWORLD:World={id:'watchworld',name:'Watchworld · every genre, walkabl
 export default function App() {
  const [streams,setStreams]=useState<Stream[]>([]),[mock,setMock]=useState(false)
  const [me,setMe]=useState<Me|null>(null),[selected,setSelected]=useState<Stream|null>(null),[inRoom,setInRoom]=useState(false)
- const [query,setQuery]=useState(''),[search,setSearch]=useState(''),[world,setWorld]=useState('earth'),[worlds,setWorlds]=useState<World[]>(FALLBACK_WORLDS)
+ const [query]=useState(''),[search,setSearch]=useState(''),[world,setWorld]=useState('earth'),[worlds,setWorlds]=useState<World[]>(FALLBACK_WORLDS)
  const [page,setPage]=useState(0),[total,setTotal]=useState(0),[hasMore,setHasMore]=useState(false),[loading,setLoading]=useState(false),[authError,setAuthError]=useState('')
  const [guest]=useState(()=>`Guest${Math.floor(Math.random()*900+100)}`)
  const [listOpen,setListOpen]=useState(false)
@@ -34,10 +35,10 @@ export default function App() {
  if(inRoom&&selected)return <PlaybackPanel key={selected.login} login={selected.login}><Theatre stream={selected} name={me?.displayName??guest} onLeave={()=>setInRoom(false)}/></PlaybackPanel>
  return <div className="home ww-explorer">
   {world==='watchworld'?<WatchSphere name={me?.displayName} selected={selected} onSelect={select} onEnter={s=>{setSelected(s);setInRoom(true)}}/>:world==='earth'?<GeoWorld streams={streams} selected={selected} onSelect={select} onEnter={s=>{setSelected(s);setInRoom(true)}}/>:<Globe streams={streams} selected={selected} onSelect={select} world={activeWorld}/>}
-  <header className="top"><h1>Watchworld</h1><input className="search" placeholder="Search all worlds: streamer, game or city" aria-label="Search all worlds" value={query} onChange={e=>setQuery(e.target.value)}/>
+  <header className="top"><h1>Watchworld</h1><OmniSearch onWorld={()=>changeWorld('watchworld')} onStream={s=>{setWorld('watchworld');setSelected(s)}}/>
    {me?<><span className="who">{me.displayName}</span><button className="ww-logout" onClick={()=>void logout().then(()=>setMe(null)).catch(e=>setAuthError(e.message))}>Log out</button></>:<a className="login" href="/auth/twitch">Log in with Twitch</a>}
   </header>
-  <WorldPicker world={world} onChange={changeWorld} worlds={[WATCHWORLD,...worlds]}/>
+  <WorldPicker world={world} onChange={changeWorld} worlds={[WATCHWORLD]}/>
   {me&&<LocationPanel me={me} streams={streams} onChanged={()=>load()}/>}
   {authError&&<p className="ww-auth-error" role="alert">{authError}</p>}
   <button className="ww-list-toggle" onClick={()=>setListOpen(v=>!v)}>{listOpen?'Hide stream list':'Browse streams'}</button>

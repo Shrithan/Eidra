@@ -11,8 +11,13 @@ const ORBIT_STEP = 3400
 /** Planets are drawn this much bigger than their walkable size, so they read from across the system. */
 const VIS = 2.9
 
-/** Orbit radius of the i-th planet. */
-export const orbitOf = (i: number) => ORBIT0 + i * ORBIT_STEP
+/** Orbit radius of the i-th planet. Orbits are spaced by the planets' own sizes, so big planets never overlap their neighbours. */
+let ORBITS: number[] = []
+export const orbitOf = (i: number) => ORBITS[i] ?? ORBIT0 + i * ORBIT_STEP
+export function setOrbits(radii: number[]) {
+  ORBITS = []
+  radii.forEach((r, i) => { ORBITS.push(i === 0 ? SUN_R * 2.4 + r * VIS * 1.3 : ORBITS[i - 1] + (radii[i - 1] + r) * VIS * 1.3 + 1200) })
+}
 /** Where a planet is at a given time (they circle the sun on slightly different tilts, slowly). */
 export function planetPos(i: number, t: number, out: THREE.Vector3) {
   const a = orbitOf(i)
@@ -97,6 +102,8 @@ type Props = {
 }
 
 export function SystemScene({ planets, from, fly, onPick, onLand }: Props) {
+  setOrbits(planets.map((p) => p.layout.R))
+  const sysOd = orbitOf(planets.length - 1) * 2.2
   const { camera, gl } = useThree()
   const group = useRef<THREE.Group>(null)
   const planetRefs = useRef<(THREE.Group | null)[]>([])
@@ -105,7 +112,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand }: Props) {
   const labelRefs = useRef<(THREE.Sprite | null)[]>([])
   const cb = useRef({ onPick, onLand })
   cb.current = { onPick, onLand }
-  const C = useRef({ oy: 0.8, op: 0.62, od: 46000, tgt: new V(), mode: 'free' as 'free' | 'fly' | 'out', idx: -1, t0: 0, landed: false })
+  const C = useRef({ oy: 0.8, op: 0.62, od: sysOd, tgt: new V(), mode: 'free' as 'free' | 'fly' | 'out', idx: -1, t0: 0, landed: false })
   const tmp = useMemo(() => ({ p: new V(), q: new V(), cam: new V() }), [])
   const geos = useMemo(() => planets.map(miniPlanet), [planets])
   const glow = useMemo(sunGlow, [])
@@ -159,7 +166,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand }: Props) {
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       if (C.current.mode !== 'free') return
-      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, 120000)
+      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, sysOd * 1.5)
     }
     canvas.addEventListener('pointerdown', pd)
     window.addEventListener('pointerup', pu)
@@ -200,8 +207,8 @@ export function SystemScene({ planets, from, fly, onPick, onLand }: Props) {
       // we just left a planet: slide the view back out to the whole system
       const k = 1 - Math.exp(-1.6 * dt)
       c.tgt.lerp(tmp.p.set(0, 0, 0), k)
-      c.od = THREE.MathUtils.lerp(c.od, 46000, k)
-      if (c.od > 42000) c.mode = 'free'
+      c.od = THREE.MathUtils.lerp(c.od, sysOd, k)
+      if (c.od > sysOd * 0.93) c.mode = 'free'
     } else if (c.mode === 'fly' && c.idx >= 0) {
       const g = planetRefs.current[c.idx]!
       const R = planets[c.idx].layout.R * VIS

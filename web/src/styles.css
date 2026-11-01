@@ -95,3 +95,18 @@ button { cursor: pointer; }
 .looking, .looking * { cursor: none !important; }
 .worldroot { position: absolute; inset: 0; isolation: isolate; overflow: hidden; }
 .screenlayer { position: absolute; top: 0; left: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+
+/* the one search box, centred at the top */
+.omni { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); width: min(560px, 44vw); z-index: 30; }
+.omni-input { width: 100%; box-sizing: border-box; background: #000a; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; outline: none; color: inherit; font-size: 14px; }
+.omni-input:focus { border-color: var(--accent); }
+.omni-list { margin-top: 6px; background: #0b0a14f2; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; max-height: 70vh; overflow-y: auto; }
+.omni-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; color: inherit; padding: 9px 12px; cursor: pointer; }
+.omni-row.on { background: #ffffff18; }
+.omni-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.omni-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.omni-main b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.omni-main small { opacity: .65; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.omni-go { font-size: 11px; opacity: .6; flex: none; }
+.omni-empty { padding: 12px; opacity: .7; font-size: 13px; }
+@media (max-width: 900px) { .omni { top: 58px; width: calc(100vw - 32px); } }

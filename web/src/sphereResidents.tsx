@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Client, type Room } from 'colyseus.js'
 import type { SphereLayout } from './sphereLayout'
-import { CUBE, useBaked } from './sphereModels'
+import { useBaked } from './sphereModels'
 
 const V = THREE.Vector3
 const Y = new V(0, 1, 0)
@@ -29,7 +29,7 @@ const ADJ = ['Neon', 'Pixel', 'Cosmic', 'Turbo', 'Silent', 'Lucky', 'Cyber', 'No
 const NOUN = ['Fox', 'Wolf', 'Panda', 'Raven', 'Byte', 'Comet', 'Ninja', 'Otter', 'Drone', 'Ghost', 'Moth', 'Kite', 'Pilot', 'Spark', 'Echo']
 const LINES = [
   'this city is huge', 'who is watching {s}?', 'anyone going to {c}?', 'the skyline here is insane', 'gg', 'just got here, hi all',
-  '{s} is live right now', 'looking for people to watch with', 'those flying cars tho', 'first time on the world, how do I fly?',
+  '{s} is live right now', 'looking for people to watch with', 'first time on the world, how do I fly?',
   'meet at the {c} district?', 'W stream', 'lol', 'this place never sleeps', 'who wants to raid someone?', 'good vibes in here',
 ]
 
@@ -279,11 +279,9 @@ type SelfState = { P: THREE.Vector3; F: THREE.Vector3; alt: number; mode: string
 export function Residents({ world, layout, self }: { world: WorldPeople; layout: SphereLayout; self: React.MutableRefObject<SelfState> }) {
   const { camera } = useThree()
   const R = layout.R
-  // everyone is one of the four Cube World characters
+  // grown men and women from Kenney's blocky pack (no robots, dummies or children)
   const chars = [
-    useBaked(CUBE('Character_Male_1'), 1.85, Math.PI), useBaked(CUBE('Character_Female_1'), 1.85, Math.PI),
-    useBaked(CUBE('Character_Male_2'), 1.85, Math.PI), useBaked(CUBE('Character_Female_2'), 1.85, Math.PI),
-    ...'abcdefgh'.split('').map((l) => useBaked(`/models/blocky/character-${l}.glb`, 1.8, Math.PI)), // eslint-disable-line react-hooks/rules-of-hooks
+    ...'abcefijkmnpq'.split('').map((l) => useBaked(`/models/blocky/character-${l}.glb`, 1.8, Math.PI)), // eslint-disable-line react-hooks/rules-of-hooks
   ]
   const charMeshes = useRef<(THREE.InstancedMesh | null)[][]>(Array.from({ length: 12 }, () => []))
   const blank = useMemo(() => new THREE.CanvasTexture(document.createElement('canvas')), [])

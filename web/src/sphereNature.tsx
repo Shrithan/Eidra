@@ -116,7 +116,20 @@ export function Nature({ layout, net }: { layout: SphereLayout; net: RoadNet }) 
     const T = layout.terrain
     const rng = seeded(90210 + Math.round(R))
     const out: ScatterItem[] = []
-    const onGround = (dir: THREE.Vector3, e?: number) => dir.clone().normalize().multiplyScalar(R + (e ?? layout.ground(dir)))
+    // the terrain is a coarse mesh, so on slopes it dips under the true ground: stand on the lowest nearby point so nothing floats
+    const tA = new THREE.Vector3(), tB = new THREE.Vector3(), tP = new THREE.Vector3()
+    const lowest = (dir: THREE.Vector3) => {
+      const n = dir.clone().normalize()
+      tA.crossVectors(n, Math.abs(n.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0)).normalize()
+      tB.crossVectors(n, tA)
+      let e = layout.ground(n)
+      for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        tP.copy(n).addScaledVector(tA, (a * 9) / R).addScaledVector(tB, (b * 9) / R).normalize()
+        e = Math.min(e, layout.ground(tP))
+      }
+      return e
+    }
+    const onGround = (dir: THREE.Vector3, e?: number) => dir.clone().normalize().multiplyScalar(R + (e !== undefined ? Math.min(e, lowest(dir)) : lowest(dir)) - 0.15)
     const add = (m: M, pos: THREE.Vector3, sMin = 0.85, sMax = 1.25) => {
       out.push({ url: m.url, height: m.h, pos, up: pos.clone().normalize(), yaw: rng() * Math.PI * 2, scale: sMin + rng() * (sMax - sMin) })
     }

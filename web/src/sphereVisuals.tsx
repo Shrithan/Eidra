@@ -1,9 +1,10 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { GROUPS, frontDir, type SphereLayout } from './sphereLayout'
 import { hash1, type RoadNet } from './sphereCity'
+import { buildRibbons } from './sphereHighways'
 import { fbm } from './sphereTerrain'
 
 const V = THREE.Vector3
@@ -233,59 +234,40 @@ export function Houses({ layout, onPick }: { layout: SphereLayout; onPick: (i: n
 
 export function Roads({ net, layout }: { net: RoadNet; layout: SphereLayout }) {
   const R = layout.R
-  const road = useRef<THREE.InstancedMesh>(null)
-  const kerb = useRef<THREE.InstancedMesh>(null)
   const discRoad = useRef<THREE.InstancedMesh>(null)
   const discKerb = useRef<THREE.InstancedMesh>(null)
-  const geo = useMemo(() => ({ box: new THREE.BoxGeometry(1, 1, 1), disc: new THREE.CylinderGeometry(1, 1, 1, 14) }), [])
+  const disc = useMemo(() => new THREE.CylinderGeometry(1, 1, 1, 14), [])
   const usable = useMemo(() => net.edges.filter(([a, b]) => net.verts[a].distanceTo(net.verts[b]) * R > 1.5), [net, R])
   const usableVerts = useMemo(() => net.verts.map((_, i) => i).filter((i) => net.valid[i]), [net])
+  // streets are ribbons that follow the ground's own curve (sampled every few metres), not straight slabs
+  const ribbons = useMemo(() => buildRibbons(usable.map(([a, b]) => [net.verts[a], net.verts[b]] as [THREE.Vector3, THREE.Vector3]), layout, 0.9, 9), [usable, net, layout])
 
   useLayoutEffect(() => {
-    const m = new THREE.Matrix4(), s = new THREE.Matrix4()
-    const A = new V(), B = new V(), M = new V(), up = new V(), dir = new V(), x = new V(), y = new V()
-    usable.forEach(([a, b], i) => {
-      A.copy(net.verts[a]).multiplyScalar(R + layout.ground(net.verts[a]))
-      B.copy(net.verts[b]).multiplyScalar(R + layout.ground(net.verts[b]))
-      const len = A.distanceTo(B)
-      M.copy(A).add(B).multiplyScalar(0.5)
-      up.copy(M).normalize()
-      dir.copy(B).sub(A).normalize()
-      x.crossVectors(up, dir).normalize()
-      y.crossVectors(dir, x).normalize()
-      m.makeBasis(x, y, dir)
-      for (const [mesh, w, t, extra, lift] of [[road.current!, 7.0, 0.3, 1.2, 0.2], [kerb.current!, 10.4, 0.2, 2.0, 0.12]] as const) {
-        s.makeScale(w, t, len + extra)
-        const mat = m.clone().multiply(s)
-        mat.setPosition(M.clone().addScaledVector(y, lift))
-        mesh.setMatrixAt(i, mat)
-      }
-    })
     const q = new THREE.Quaternion(), p = new V(), sc = new V(), mm = new THREE.Matrix4()
     usableVerts.forEach((vi, i) => {
       const v = net.verts[vi]
-      const h = R + layout.ground(v)
+      const h = R + Math.max(layout.ground(v), 0.35)
       q.setFromUnitVectors(Y, v)
-      p.copy(v).multiplyScalar(h + 0.2)
-      mm.compose(p, q, sc.set(4.8, 0.3, 4.8))
+      p.copy(v).multiplyScalar(h + 0.28)
+      mm.compose(p, q, sc.set(4.8, 0.1, 4.8))
       discRoad.current!.setMatrixAt(i, mm)
-      p.copy(v).multiplyScalar(h + 0.12)
-      mm.compose(p, q, sc.set(6.6, 0.2, 6.6))
+      p.copy(v).multiplyScalar(h + 0.2)
+      mm.compose(p, q, sc.set(6.6, 0.1, 6.6))
       discKerb.current!.setMatrixAt(i, mm)
     })
-    for (const r of [road, kerb, discRoad, discKerb]) {
+    for (const r of [discRoad, discKerb]) {
       r.current!.instanceMatrix.needsUpdate = true
       r.current!.computeBoundingSphere()
     }
-  }, [net, layout, R, usable, usableVerts])
+  }, [net, layout, R, usableVerts])
 
-  const std = (c: string) => <meshStandardMaterial color={c} roughness={1} flatShading />
+  const std = (c: string) => <meshStandardMaterial color={c} roughness={1} flatShading polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
   return (
     <group>
-      <instancedMesh ref={kerb} args={[geo.box, undefined, usable.length]} raycast={() => null}>{std('#e1d9c4')}</instancedMesh>
-      <instancedMesh ref={road} args={[geo.box, undefined, usable.length]} raycast={() => null}>{std('#565a68')}</instancedMesh>
-      <instancedMesh ref={discKerb} args={[geo.disc, undefined, usableVerts.length]} raycast={() => null}>{std('#e1d9c4')}</instancedMesh>
-      <instancedMesh ref={discRoad} args={[geo.disc, undefined, usableVerts.length]} raycast={() => null}>{std('#565a68')}</instancedMesh>
+      <mesh geometry={ribbons[0]} raycast={() => null}>{std('#e1d9c4')}</mesh>
+      <mesh geometry={ribbons[1]} raycast={() => null}>{std('#565a68')}</mesh>
+      <instancedMesh ref={discKerb} args={[disc, undefined, usableVerts.length]} raycast={() => null}>{std('#e1d9c4')}</instancedMesh>
+      <instancedMesh ref={discRoad} args={[disc, undefined, usableVerts.length]} raycast={() => null}>{std('#565a68')}</instancedMesh>
     </group>
   )
 }
@@ -852,8 +834,17 @@ export function Forest({ layout, count = 9000 }: { layout: SphereLayout; count?:
 
 /** One sea level for the whole planet: every dip in the land below 0 m becomes a lake or a sea. */
 export function Water({ R, color = '#4db8ee' }: { R: number; color?: string }) {
+  const ref = useRef<THREE.Mesh>(null)
+  const { camera } = useThree()
+  // seen from far away the sea sits a little higher above the land, so the shoreline does not flicker
+  useFrame(() => {
+    if (!ref.current) return
+    const h = Math.max(0, camera.position.length() - R)
+    const s = (R + 0.1 + Math.min(h * 0.0006, 1.6)) / (R + 0.1)
+    ref.current.scale.setScalar(s)
+  })
   return (
-    <mesh raycast={() => null}>
+    <mesh ref={ref} raycast={() => null}>
       <sphereGeometry args={[R + 0.1, 160, 110]} />
       <meshStandardMaterial color={color} transparent opacity={0.84} roughness={0.2} metalness={0.05} />
     </mesh>

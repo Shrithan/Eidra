@@ -2,19 +2,21 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import './sphere.css'
-import { fetchStreams, type Stream } from './api'
-import { GROUPS, TIERS, frontDir, groupIndex, layoutSystem, type PlanetData, type SphereLayout } from './sphereLayout'
+import { type Stream } from './api'
+import { loadAllStreams, onStreams, streamsNow } from './streamStore'
+import { onGoto, takeGoto } from './sphereSearch'
+import { COUNTRY_COLORS, GROUPS, TIERS, frontDir, groupIndex, layoutSystem, type PlanetData, type SphereLayout } from './sphereLayout'
 import { SystemScene } from './sphereSystem'
 import { buildRoadNet } from './sphereCity'
-import { Atmosphere, Clouds, Planes, Props, Railways, Roads, SkyDome, Water, Waterfalls, hashStr, makeGroundMaterial } from './sphereVisuals'
+import { Atmosphere, Props, Railways, Roads, SkyDome, Water, Waterfalls, hashStr, makeGroundMaterial } from './sphereVisuals'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { CUBE, loadGLTF } from './sphereModels'
 import { Animals, Nature } from './sphereNature'
-import { Boats, ModelHouses, ModelTraffic } from './sphereCityModels'
+import { Boats, ModelHouses } from './sphereCityModels'
+import { Highways } from './sphereHighways'
 import { Residents, WorldChat, useWorldPeople, type WorldPeople } from './sphereResidents'
 
-const MAX_STREAMS = 5000
 const WALK_SPEED = 7 // m/s
 const RUN_SPEED = 22
 const GRAVITY = 24
@@ -35,7 +37,7 @@ type Props = {
 /** Where we are: looking at the whole solar system, or standing on one genre planet. */
 type View =
   | { kind: 'system'; from: number | null; fly: number | null }
-  | { kind: 'planet'; index: number; entry: THREE.Vector3 | null }
+  | { kind: 'planet'; index: number; entry: THREE.Vector3 | null; nonce?: number; focus?: string | null }
 
 /**
  * All of Twitch as a solar system: every genre is its own planet, every game a country on it, every stream a building.
@@ -54,23 +56,33 @@ export default function WatchSphere({ selected, onSelect, onEnter, name }: Props
   const [warp, setWarp] = useState<string | null>(null)
 
   useEffect(() => {
-    const ctl = new AbortController()
-    ;(async () => {
-      const all: Stream[] = []
-      const seen = new Set<string>()
-      let offset = 0
-      // the server pages its answers (busiest first); keep asking until we have enough
-      for (let page = 0; page < 8 && all.length < MAX_STREAMS; page++) {
-        const r = await fetchStreams({ planet: 'all', limit: 2000, offset }, ctl.signal)
-        for (const s of r.streams) if (!seen.has(s.login)) { seen.add(s.login); all.push(s) }
-        offset += r.streams.length
-        if (!r.hasMore || !r.streams.length) break
-      }
-      if (ctl.signal.aborted) return
-      setPlanets(layoutSystem(all.slice(0, MAX_STREAMS)))
-    })().catch((e) => { if (!ctl.signal.aborted) setError(String(e?.message ?? e)) })
-    return () => ctl.abort()
+    let live = true
+    // the busiest page lands first so the world appears quickly; the rest rebuild it with every live streamer
+    const lay = () => { if (live && streamsNow().length) setPlanets(layoutSystem(streamsNow().slice())) }
+    const off = onStreams(lay)
+    loadAllStreams().catch((e) => { if (live) setError(String(e?.message ?? e)) })
+    if (streamsNow().length) lay()
+    return () => { live = false; off() }
   }, [])
+
+  // the search bar can send us to a planet, or to the country of a game
+  useEffect(() => {
+    if (!planets) return
+    const go = () => {
+      const g = takeGoto()
+      if (!g) return
+      const lay = planets[g.planet].layout
+      const t = g.game ? lay.categories.find((c) => c.category === g.game) : null
+      const entry = (t ?? lay.groups[0])?.centroid.clone() ?? null
+      setView((v) => {
+        if (v.kind !== 'planet' || v.index !== g.planet) { setWarp(planets[g.planet].theme.name); setTimeout(() => setWarp(null), 900) }
+        return { kind: 'planet', index: g.planet, entry, nonce: (v.kind === 'planet' ? (v.nonce ?? 0) : 0) + 1, focus: t?.category ?? null }
+      })
+    }
+    const off = onGoto(go)
+    go()
+    return off
+  }, [planets])
 
   useEffect(() => { setMissing(false) }, [selected?.login])
 
@@ -132,8 +144,9 @@ export default function WatchSphere({ selected, onSelect, onEnter, name }: Props
             />
           ) : (
             <Scene
-              key={view.index}
+              key={`${view.index}:${view.nonce ?? 0}`}
               layout={planets[view.index].layout}
+              focus={view.focus ?? null}
               entry={view.entry}
               selected={selected}
               onSelect={onSelect}
@@ -170,7 +183,7 @@ export default function WatchSphere({ selected, onSelect, onEnter, name }: Props
             </div>
           )}
           {view.kind === 'planet' && <WorldChat world={people} inputRef={chatInput} name={myName} />}
-          {missing && <div className="sphere-note">That stream is not among the {MAX_STREAMS.toLocaleString()} busiest, so it has no building yet.</div>}
+          {missing && <div className="sphere-note">That stream has no building yet (it may have just gone live).</div>}
           {warp && <div className="sphere-warp">Travelling to {warp}…</div>}
           <div className="sphere-tiers">
             <div className="sphere-legend-title">Buildings by viewers</div>
@@ -234,7 +247,7 @@ function Planet({ layout, grid }: { layout: SphereLayout; grid: Grid }) {
   const geometry = useMemo(() => {
     const R = layout.R, T = layout.terrain
     // build on shared vertices so each point of land is evaluated once, then split into flat-shaded facets
-    let geo: THREE.BufferGeometry = new THREE.IcosahedronGeometry(R, 64)
+    let geo: THREE.BufferGeometry = new THREE.IcosahedronGeometry(R, layout.detail)
     geo.deleteAttribute('normal')
     geo.deleteAttribute('uv')
     geo = mergeVertices(geo, 1e-3)
@@ -248,9 +261,9 @@ function Planet({ layout, grid }: { layout: SphereLayout; grid: Grid }) {
       const e = T.elevation(d)
       pos.setXYZ(i, d.x * (R + e), d.y * (R + e), d.z * (R + e))
       T.color(d, e, nat)
-      const mask = e < 0 ? 0 : T.cityMask(d)
-      if (mask > 0.01) {
-        // city ground: grass tinted by the nearest building's genre, a little different per game, so the continents show
+      if (e >= 0.4) {
+        // every game's country is one flat colour (the 12 biggest differ, the rest share one), so they can be told apart from orbit;
+        // it fades out on the high peaks, which keep their rock and snow
         pw.copy(d).multiplyScalar(R)
         let best = -1, bestD = Infinity
         grid.near(pw, (idx) => {
@@ -258,11 +271,11 @@ function Planet({ layout, grid }: { layout: SphereLayout; grid: Grid }) {
           if (dist < bestD) { bestD = dist; best = idx }
         })
         if (best >= 0) {
-          const p = layout.plots[best]
-          const hh = hashStr(p.category)
-          cityGround.copy(grass).lerp(tint.set(layout.theme.houses[hh % layout.theme.houses.length]), 0.3).multiplyScalar(0.92 + ((hh >> 4) % 100) / 700)
-          nat.lerp(cityGround, mask)
-        } else nat.lerp(grass, mask)
+          const hh = hashStr(layout.plots[best].category)
+          tint.set(COUNTRY_COLORS[layout.plots[best].country]).multiplyScalar(0.94 + ((hh >> 4) % 100) / 1000)
+          const peak = e / layout.terrain.scale
+          nat.lerp(tint, 0.72 * T.cityMask(d) * (1 - Math.min(1, Math.max(0, (peak - 60) / 40))))
+        }
       }
       c.copy(nat)
       colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b
@@ -270,6 +283,23 @@ function Planet({ layout, grid }: { layout: SphereLayout; grid: Grid }) {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     const flat = geo.toNonIndexed()
     flat.computeVertexNormals() // one normal per triangle: the low-poly, faceted look
+    // one colour per facet too, so every face is a flat patch of colour instead of a gradient
+    const col = flat.attributes.color as THREE.BufferAttribute
+    const fp = flat.attributes.position as THREE.BufferAttribute, fn = flat.attributes.normal as THREE.BufferAttribute
+    const cliff = new THREE.Color('#7b5a43')
+    for (let i = 0; i + 2 < col.count; i += 3) {
+      let r = (col.getX(i) + col.getX(i + 1) + col.getX(i + 2)) / 3, g = (col.getY(i) + col.getY(i + 1) + col.getY(i + 2)) / 3, b = (col.getZ(i) + col.getZ(i + 1) + col.getZ(i + 2)) / 3
+      // steep faces become brown cliff walls (flat tops stay green), like stacked blocks
+      const cx = fp.getX(i) + fp.getX(i + 1) + fp.getX(i + 2), cy = fp.getY(i) + fp.getY(i + 1) + fp.getY(i + 2), cz = fp.getZ(i) + fp.getZ(i + 1) + fp.getZ(i + 2)
+      const up = (fn.getX(i) * cx + fn.getY(i) * cy + fn.getZ(i) * cz) / Math.max(1e-6, Math.hypot(cx, cy, cz))
+      const hgt = Math.hypot(cx, cy, cz) / 3 - R
+      if (hgt > 3.5 && up < 0.9) {
+        const k = Math.min(1, (0.9 - up) / 0.12)
+        const wall = 0.78 + 0.22 * (1 - Math.min(1, hgt / 120))
+        r += (cliff.r * wall - r) * k; g += (cliff.g * wall - g) * k; b += (cliff.b * wall - b) * k
+      }
+      for (let j = 0; j < 3; j++) col.setXYZ(i + j, r, g, b)
+    }
     return flat
   }, [layout, grid])
   return (
@@ -303,9 +333,9 @@ function Labels({ layout }: { layout: SphereLayout }) {
   const items = useMemo(() => {
     const out: { text: string; color: string; pos: THREE.Vector3; w: number; kind: 'group' | 'cat' }[] = []
     for (const g of layout.groups) out.push({ text: GROUPS[g.group].name, color: '#ffffff', pos: g.centroid.clone().multiplyScalar(layout.R + 330), w: layout.R * 0.55, kind: 'group' })
-    for (const c of layout.categories.slice(0, 40)) {
+    for (const c of layout.countries) {
       if (c.count < 3) continue
-      out.push({ text: c.category ?? '', color: GROUPS[c.group].color, pos: c.centroid.clone().multiplyScalar(layout.R + 150), w: layout.R * 0.2, kind: 'cat' })
+      out.push({ text: c.name, color: c.color, pos: c.centroid.clone().multiplyScalar(layout.R + 150), w: layout.R * 0.3, kind: 'cat' })
     }
     return out.map((o) => ({ ...o, texture: labelTexture(o.text, o.color) }))
   }, [layout])
@@ -316,7 +346,7 @@ function Labels({ layout }: { layout: SphereLayout }) {
       if (!s) return
       const d = camera.position.distanceTo(it.pos)
       const mat = s.material as THREE.SpriteMaterial
-      mat.opacity = it.kind === 'group' ? THREE.MathUtils.clamp((d - layout.R * 0.5) / (layout.R * 0.6), 0, 1) : THREE.MathUtils.clamp(1 - (d - layout.R * 0.35) / (layout.R * 0.9), 0, 1)
+      mat.opacity = it.kind === 'group' ? THREE.MathUtils.clamp((d - layout.R * 0.5) / (layout.R * 0.6), 0, 1) : THREE.MathUtils.clamp((d - layout.R * 0.1) / (layout.R * 0.25), 0, 1)
     })
   })
   return (
@@ -328,6 +358,14 @@ function Labels({ layout }: { layout: SphereLayout }) {
       ))}
     </group>
   )
+}
+
+/** Streets are only worth drawing close up; from orbit they just clutter the colours of the countries. */
+function NearOnly({ R, children }: { R: number; children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null)
+  const { camera } = useThree()
+  useFrame(() => { if (ref.current) ref.current.visible = camera.position.length() < R * 1.45 })
+  return <group ref={ref}>{children}</group>
 }
 
 function Stars({ R }: { R: number }) {
@@ -347,6 +385,20 @@ function Stars({ R }: { R: number }) {
   )
 }
 
+/** A tall pillar of light over the country of a searched game. */
+function CountryBeacon({ layout, game }: { layout: SphereLayout; game: string }) {
+  const t = layout.categories.find((c) => c.category === game)
+  const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(Y, t?.centroid ?? Y), [t])
+  if (!t) return null
+  const color = COUNTRY_COLORS[t.country]
+  return (
+    <mesh position={t.centroid.clone().multiplyScalar(layout.R + layout.R * 0.3)} quaternion={q} raycast={() => null}>
+      <cylinderGeometry args={[layout.R * 0.012, layout.R * 0.03, layout.R * 0.6, 14, 1, true]} />
+      <meshBasicMaterial color={color} toneMapped={false} transparent opacity={0.55} depthWrite={false} side={THREE.DoubleSide} />
+    </mesh>
+  )
+}
+
 function Beacon({ layout, idx }: { layout: SphereLayout; idx: number }) {
   const p = layout.plots[idx]
   const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(Y, p.dir), [p])
@@ -363,9 +415,10 @@ function Beacon({ layout, idx }: { layout: SphereLayout; idx: number }) {
 
 type Travel = { t0: number; dur: number; P0: THREE.Vector3; F0: THREE.Vector3; alt0: number; P1: THREE.Vector3; F1: THREE.Vector3 }
 
-function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onMissing, people }: {
+function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNear, onMissing, people }: {
   layout: SphereLayout
   entry: THREE.Vector3 | null
+  focus: string | null
   selected: Stream | null
   onSelect: (s: Stream) => void
   onEnter: (s: Stream) => void
@@ -408,6 +461,13 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
     callbacks.current.onMode('orbit')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // the further out the camera is, the further it keeps its near plane, so surfaces that sit close together stay apart in the depth buffer
+  useFrame(() => {
+    const cam = camera as THREE.PerspectiveCamera
+    const h = Math.max(0, cam.position.length() - R)
+    const near = THREE.MathUtils.clamp(h * 0.06, 0.3, R * 0.4)
+    if (Math.abs(near - cam.near) > cam.near * 0.05) { cam.near = near; cam.updateProjectionMatrix() }
+  })
   const avatar = useRef<THREE.Group>(null)
   const legL = useRef<THREE.Group>(null)
   const legR = useRef<THREE.Group>(null)
@@ -495,7 +555,7 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
         const k = document.pointerLockElement === canvas ? 0.0022 : 0.005
         t.q.setFromAxisAngle(s.P, -e.movementX * k)
         s.F.applyQuaternion(t.q)
-        s.pitch = THREE.MathUtils.clamp(s.pitch - e.movementY * k, -1.2, 0.5)
+        s.pitch = THREE.MathUtils.clamp(s.pitch - e.movementY * k, -1.2, 1.4)
       }
     }
     const wheel = (e: WheelEvent) => {
@@ -657,13 +717,15 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
     }
 
     // ---- camera: third person, behind and above ----
-    const dist = s.mode === 'travel' ? 7 + s.alt * 0.15 : 7
+    let dist = s.mode === 'travel' ? 7 + s.alt * 0.15 : 7
     const cp = Math.cos(s.pitch), sp = Math.sin(s.pitch)
+    // looking up swings the camera under your head, so pull it in rather than letting the ground push it up
+    if (sp > 0.02) dist = Math.min(dist, Math.max(0.6, (s.alt + 1.7 - 0.5) / sp))
     t.head.copy(s.P).multiplyScalar(R + g + s.alt + 1.7)
     t.cam.copy(t.head).addScaledVector(s.F, -cp * dist).addScaledVector(s.P, -sp * dist)
-    // never let the camera dip into the ground when you look up
     const camHeight = t.cam.dot(s.P) - (R + g)
-    if (camHeight < 1.2) t.cam.addScaledVector(s.P, 1.2 - camHeight)
+    if (camHeight < 0.5) t.cam.addScaledVector(s.P, 0.5 - camHeight)
+    if (avatar.current && s.mode === 'walk') avatar.current.visible = dist > 2.4 // hide yourself when the camera is inside your head
     camera.position.lerp(t.cam, 1 - Math.exp(-14 * dt))
     camera.up.lerp(s.P, 1 - Math.exp(-10 * dt)).normalize()
     camera.lookAt(t.head)
@@ -701,15 +763,16 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
       <Animals layout={layout} />
       <Boats layout={layout} />
       <Waterfalls layout={layout} />
-      <Roads net={net} layout={layout} />
+      <NearOnly R={R}>
+        <Roads net={net} layout={layout} />
+        <Highways net={net} layout={layout} />
+      </NearOnly>
       <ModelHouses layout={layout} onPick={(i) => callbacks.current.onSelect(layout.plots[i].stream)} />
       <Props net={net} layout={layout} />
-      <ModelTraffic net={net} layout={layout} />
       <Railways R={R} ground={layout.ground} />
-      <Clouds R={R} />
-      <Planes R={R} />
       <Residents world={people} layout={layout} self={S} />
       <Labels layout={layout} />
+      {focus && <CountryBeacon layout={layout} game={focus} />}
       {selIdx >= 0 && <Beacon layout={layout} idx={selIdx} />}
       <group ref={avatar} visible={false}>
         <PlayerCharacter S={S} />
@@ -718,22 +781,23 @@ function Scene({ layout, entry, selected, onSelect, onEnter, onMode, onNear, onM
   )
 }
 
-/** You: an animated Cube World character that idles, walks, runs and jumps with what the controller is doing. */
+/** You: an animated blocky grown man (Kenney) who idles, walks, runs and jumps with what the controller is doing. */
 function PlayerCharacter({ S }: { S: React.MutableRefObject<{ alt: number; vel: THREE.Vector3 }> }) {
   const [rig, setRig] = useState<{ root: THREE.Object3D; mixer: THREE.AnimationMixer; actions: Record<string, THREE.AnimationAction> } | null>(null)
-  const current = useRef('Idle')
+  const current = useRef('idle')
   useEffect(() => {
     let live = true
-    loadGLTF(CUBE('Character_Male_1')).then((g) => {
+    loadGLTF('/models/blocky/character-b.glb').then((g) => {
       if (!live) return
       const root = SkeletonUtils.clone(g.scene)
-      root.scale.setScalar(1.85 / 2.84)
+      const h = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y
+      root.scale.setScalar(1.85 / Math.max(0.01, h))
       root.rotation.y = Math.PI // the model faces +Z; the player group faces -Z
       root.traverse((o) => { o.frustumCulled = false })
       const mixer = new THREE.AnimationMixer(root)
       const actions: Record<string, THREE.AnimationAction> = {}
       for (const clip of g.animations) actions[clip.name] = mixer.clipAction(clip)
-      actions.Idle?.play()
+      actions.idle?.play()
       setRig({ root, mixer, actions })
     })
     return () => { live = false }
@@ -743,7 +807,7 @@ function PlayerCharacter({ S }: { S: React.MutableRefObject<{ alt: number; vel: 
     const dt = Math.min(dtRaw, 0.1)
     const s = S.current
     const speed = s.vel.length()
-    const want = s.alt > 0.15 ? 'Jump_Idle' : speed > 13 ? 'Run' : speed > 0.6 ? 'Walk' : 'Idle'
+    const want = s.alt > 0.15 ? 'sprint' : speed > 13 ? 'sprint' : speed > 0.6 ? 'walk' : 'idle'
     if (want !== current.current && rig.actions[want]) {
       const from = rig.actions[current.current], to = rig.actions[want]
       to.reset().play()
@@ -751,7 +815,7 @@ function PlayerCharacter({ S }: { S: React.MutableRefObject<{ alt: number; vel: 
       current.current = want
     }
     const a = rig.actions[current.current]
-    if (a) a.timeScale = want === 'Walk' ? THREE.MathUtils.clamp(speed / 5, 0.6, 1.4) : 1
+    if (a) a.timeScale = want === 'walk' ? THREE.MathUtils.clamp(speed / 5, 0.6, 1.4) : 1
     rig.mixer.update(dt)
   })
   return rig ? <primitive object={rig.root} /> : null

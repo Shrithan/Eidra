@@ -6,6 +6,8 @@ const NOISE = new ImprovedNoise()
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x)
 const smooth = (a: number, b: number, x: number) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t) }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+/** Round a height into flat plateaus with steep risers: stepped, blocky mountains instead of smooth bumps. */
+const terrace = (v: number, step: number) => { const q = v / step, f = q - Math.floor(q); return (Math.floor(q) + smooth(0.86, 0.99, f)) * step }
 
 /** Fractal noise, roughly in [-0.9, 0.9]. The offsets keep us off the noise lattice's flat integer points. */
 export function fbm(x: number, y: number, z: number, octaves: number) {
@@ -43,12 +45,13 @@ export type Terrain = {
 
 const tmp = new THREE.Color()
 
-export type TerrainOptions = { seed?: number; theme?: Theme; scale?: number }
+export type TerrainOptions = { seed?: number; theme?: Theme; scale?: number; step?: number }
 
 export function createTerrain(opts: TerrainOptions = {}): Terrain {
   const theme = opts.theme ?? THEMES[0]
   const seed = opts.seed ?? 0
   const k = Math.max(0.3, Math.min(1, opts.scale ?? 1))
+  const step = opts.step ?? 16 // height of one mountain shelf, in metres
   // every planet samples a different region of the same noise field, so no two planets have the same land
   const ox = seed * 13.37, oy = seed * 7.91, oz = seed * 10.53
   const sh = (d: THREE.Vector3) => new THREE.Vector3(d.x + ox, d.y + oy, d.z + oz)
@@ -74,9 +77,14 @@ export function createTerrain(opts: TerrainOptions = {}): Terrain {
     const r1 = 1 - Math.abs(NOISE.noise(x * 3.4 + 2.1, y * 3.4 + 0.3, z * 3.4 + 5.2))
     const r2 = 1 - Math.abs(NOISE.noise(x * 7.5 + 0.9, y * 7.5 + 1.3, z * 7.5 + 0.2))
     const ridge = Math.max(0, r1 * 0.72 + r2 * 0.28 - 0.5) / 0.5
-    const mountains = Math.pow(ridge, 1.6) * 230 * theme.mountains * smooth(0.12, 0.6, far)
-    const basin = smooth(-0.04, 0.24, fbm(x * 4.4 + 7, y * 4.4 + 0.5, z * 4.4 + 2, 3)) * 44 * theme.lakes * smooth(0.03, 0.22, far)
-    const nature = (hills + 9 + mountains - basin) * k
+    const mountains = smooth(0.08, 0.7, ridge) * 150 * theme.mountains * smooth(0.12, 0.6, far)
+    // wide sea basins in the wilderness between the districts: every planet gets oceans, however dry its theme
+    const basin = smooth(-0.4, -0.02, fbm(x * 2.6 + 7, y * 2.6 + 0.5, z * 2.6 + 2, 3)) * 48 * Math.max(theme.lakes, 0.9) * smooth(0.02, 0.16, far)
+    const raw = hills + 9 + mountains - basin
+    // above the beaches the land climbs in shelves (low-poly, voxel-game style); lakes and shores stay smooth
+    // a wide, gentle beach shelf around the water, then the land climbs on in shelves
+    const shaped = raw > 10 ? raw - 6 : raw > 0 ? raw * 0.4 : raw
+    const nature = (shaped > 4 ? 4 + terrace(shaped - 4, step) : shaped) * k
     return lerp(nature, CITY_LEVEL, city)
   }
 
@@ -84,12 +92,13 @@ export function createTerrain(opts: TerrainOptions = {}): Terrain {
     const patch = fbm(d.x * 26 + 4, d.y * 26, d.z * 26 + 1, 2) * 1.2 // -0.6..0.6 patchy variation
     const ee = e < 0 ? e : e / k // heights as if on the biggest planet, so snow lines and rock lines scale with the relief
     if (e < 0) return out.copy(P.bed).multiplyScalar(0.75 + clamp01(1 + e / 40) * 0.25)
-    if (e < 2.4) return out.copy(P.sand)
+    if (e < 3.6) return out.copy(P.sand)
     const grass = tmp.copy(P.grassA).lerp(P.grassB, clamp01(patch + 0.5))
     out.copy(grass)
-    out.lerp(P.forest, smooth(20, 55, ee + patch * 12))
-    out.lerp(tmp.copy(P.rockA).lerp(P.rockB, clamp01(patch + 0.5)), smooth(80, 105, ee + patch * 14))
-    out.lerp(P.snow, smooth(138, 158, ee + patch * 12))
+    // hard colour bands, so each shelf reads as one flat colour
+    out.lerp(P.forest, smooth(34, 37, ee + patch * 10))
+    out.lerp(tmp.copy(P.rockA).lerp(P.rockB, Math.floor(clamp01(patch + 0.5) * 3) / 2), smooth(86, 89, ee + patch * 12))
+    out.lerp(P.snow, smooth(190, 193, ee + patch * 10))
     return out
   }
 
