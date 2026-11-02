@@ -298,11 +298,14 @@ npm --prefix server run test:twitch
 
 ## 🛠 How we built it
 
-Orbyx was built by a team of two with AI coding tools, each used for different parts:
+Orbyx was built by a team of two with help from **Codex (OpenAI)**. We supplied the product direction, feature briefs and feedback, then iterated on the implementation and tested the experience together.
 
-- **Codex (OpenAI):** the multiplayer station-games system (the four games per planet, game engines and the 3D variants), written from the brief in [STATIONS_PROMPT.md](STATIONS_PROMPT.md) and [STATIONS_UPDATE_PROMPT.md](STATIONS_UPDATE_PROMPT.md); and the avatar, quest, in-theatre phone and Twitch-follows features.
-- **Claude Code (Anthropic):** the sphere world renderer (planets, terrain, roads, wonders, blimps), the central island, custom planets, viewer crowds, player interactions, rewards fixes, deployment and the review and testing passes.
-- **[Team to confirm before submitting: which tool wrote the original Express/Colyseus backend, the catalog and the theatre rooms.]**
+- **Backend and Twitch integration:** Codex helped implement the Express/Colyseus backend, shared theatre rooms, movement and interaction handling, Twitch OAuth, live-stream discovery and the Twitch chat bridge, following [CONTRACT.md](CONTRACT.md).
+- **Games and social features:** Codex helped build the multiplayer station-games system from [STATIONS_PROMPT.md](STATIONS_PROMPT.md) and [STATIONS_UPDATE_PROMPT.md](STATIONS_UPDATE_PROMPT.md), along with avatar customization, quests, the in-theatre phone and Twitch-follows features.
+- **World building and integration:** Codex helped with the sphere world renderer, including planets, terrain, roads, wonders and blimps; the central island and custom planets; viewer crowds and player interactions; rewards fixes; deployment; and review and testing passes.
+- **Interface and presentation:** Codex helped redesign the landing page and HUD with Twitch-inspired typography and purple styling, apply the Orbyx rebrand, and edit our recorded demo footage into the hackathon video with an original electronic soundtrack and a timed two-person voice-over script.
+
+We used Codex to turn briefs into changes in the shared repository, inspect implementation details, run builds and realtime checks, and refine the result through browser reviews and recorded walkthroughs.
 
 ## 🙏 Credits
 
