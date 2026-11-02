@@ -1,0 +1,329 @@
+.station-prompt {
+  position: fixed;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: #142139ee;
+  border: 2px solid #ffd84d;
+  border-radius: 14px;
+  padding: 14px 20px;
+  color: white;
+  font: 16px system-ui;
+  max-width: 90vw;
+  pointer-events: auto;
+}
+.station-prompt button,
+.station-hud button {
+  cursor: pointer;
+  background: #314e6e;
+  color: white;
+  border: 1px solid #88a7c3;
+  border-radius: 7px;
+  padding: 9px 13px;
+  margin: 4px;
+}
+.station-hud button:focus-visible,
+.station-hud input:focus-visible,
+.station-hud select:focus-visible {
+  outline: 3px solid #ffd84d;
+  outline-offset: 2px;
+}
+.station-hud button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.station-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #080e1aef;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  color: #f1f5ff;
+  font: 15px system-ui;
+}
+.station-hud {
+  width: min(1050px, 96vw);
+  max-height: 95vh;
+  overflow: auto;
+  background: #142139;
+  border: 2px solid;
+  border-radius: 18px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+.station-hud header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.station-hud h2 {
+  margin: 5px 0;
+}
+.station-hud input,
+.station-hud select {
+  background: #253b55;
+  color: white;
+  border: 1px solid #829ab2;
+  border-radius: 5px;
+  padding: 8px;
+  max-width: 100%;
+  margin: 5px;
+}
+.station-hud label {
+  display: inline-block;
+}
+.station-hud input[type="number"] {
+  width: 65px;
+}
+.station-board {
+  height: min(38vh, 360px);
+  border: 1px solid #607b97;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.station-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.station-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 15px;
+}
+.station-pixels {
+  display: grid;
+  grid-template-columns: repeat(32, 1fr);
+  width: min(480px, 80vw);
+  aspect-ratio: 1;
+  gap: 0;
+  border: 2px solid #9aaaca;
+  margin: 10px;
+}
+.station-pixels button {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+  aspect-ratio: 1;
+}
+.station-pixels.preview {
+  width: 200px;
+}
+.station-entry {
+  border: 1px solid #6a85a0;
+  margin: 10px;
+  padding: 10px;
+}
+.station-block-preview,
+.station-layout {
+  position: relative;
+  width: 300px;
+  height: 180px;
+  background: #23334d;
+}
+.station-block-preview span {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  box-shadow: 3px 3px #0006;
+}
+.station-layout span {
+  position: absolute;
+  background: #5aa9ff;
+  padding: 4px;
+  border: 1px solid white;
+}
+.station-table-grid {
+  display: grid;
+  max-width: 420px;
+  gap: 2px;
+  margin: 12px;
+}
+.station-table-grid > span {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: #b2c7da;
+  color: #142139;
+  font-size: 24px;
+  position: relative;
+}
+.station-table-grid > span.dark {
+  background: #7893ab;
+}
+.station-table-grid small {
+  font-size: 9px;
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+}
+.station-history {
+  max-height: 120px;
+  overflow: auto;
+}
+.station-enemy {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.station-sign-status {
+  font-size: 12px;
+}
+.station-help {
+  color: #b7cee5;
+}
+.station-world3d {
+  height: min(65vh, 680px);
+  min-height: 320px;
+  border: 2px solid #7795b3;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.station-world3d canvas {
+  touch-action: none;
+}
+.station-target {
+  height: 280px;
+  background: #243951;
+  position: relative;
+  cursor: crosshair;
+  overflow: hidden;
+}
+.station-target-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 42px;
+  color: #ffd84d;
+}
+.station-reticle {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  color: white;
+  pointer-events: none;
+}
+.station-target-key {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+.station-gauge {
+  height: 70px;
+  background: #33465f;
+  position: relative;
+  margin: 24px 0;
+}
+.station-green {
+  height: 100%;
+  background: #6bdc8b;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.station-needle {
+  width: 4px;
+  height: 100%;
+  position: absolute;
+  background: white;
+}
+.station-island-brush {
+  width: min(400px, 80vw);
+  height: 300px;
+  background: #356f9b;
+  border: 2px solid #a9c4df;
+  cursor: crosshair;
+  touch-action: none;
+}
+.station-island-brush svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.station-nameplate {
+  display: block;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #142139cc;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font: 12px system-ui;
+  pointer-events: none;
+}
+
+.station-chess {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(100%, 460px);
+  aspect-ratio: 1;
+  border: 3px solid #5b3d22;
+  margin: 8px auto;
+}
+.station-chess button {
+  background: #ecd9b0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  font-size: clamp(22px, 5vw, 40px);
+  line-height: 1;
+  color: #111;
+  cursor: pointer;
+}
+.station-chess button.dark {
+  background: #b58863;
+}
+.station-chess button.sel {
+  outline: 3px solid #ffd84d;
+  outline-offset: -3px;
+}
+.station-chess button.target {
+  box-shadow: inset 0 0 0 100px rgba(80, 200, 120, 0.45);
+}
+.station-chess button:disabled {
+  opacity: 1;
+}
+.station-pool {
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 2 / 1;
+  display: block;
+  margin: 6px auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+.station-crosshair {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.station-crosshair::before,
+.station-crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+  transform: translate(-50%, -50%);
+}
+.station-crosshair::before {
+  width: 16px;
+  height: 2px;
+}
+.station-crosshair::after {
+  width: 2px;
+  height: 16px;
+}

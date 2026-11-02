@@ -1,0 +1,10 @@
+.geo { position: absolute; inset: 0; }
+.geo-view { position: absolute; inset: 0; }
+.geo-view .cesium-viewer, .geo-view .cesium-viewer-cesiumWidgetContainer, .geo-view .cesium-widget, .geo-view canvas { width: 100%; height: 100%; }
+.geo-hud { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: center; max-width: 92%; padding: 8px 14px; border-radius: 12px; background: #000b; border: 1px solid #2a2a2e; color: #adadb8; font-size: 12px; text-align: center; z-index: 5; }
+.geo-hud b { color: #efeff1; }
+.geo-hud .geo-enter { color: #bf94ff; }
+.geo-hud button { background: #9146ff; border: 0; border-radius: 8px; padding: 6px 12px; color: #fff; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.geo-note { position: absolute; top: 64px; right: 20px; max-width: 280px; padding: 6px 10px; border-radius: 8px; background: #3a2a05e6; color: #ffd18a; font-size: 11px; z-index: 5; pointer-events: none; }
+.geo-note code { background: #0006; padding: 0 3px; border-radius: 3px; }
+.geo-ok { background: #0a3a1ee6; color: #7ee0a4; }
