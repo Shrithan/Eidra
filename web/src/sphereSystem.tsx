@@ -130,6 +130,9 @@ type Props = {
 export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, onPickIsland, onLandIsland, elite, selectedLogin }: Props) {
   setOrbits(planets.map((p) => p.layout.R), planets.findIndex((p) => p.theme.id === 'home'))
   const sysOd = outerOrbit() * 2.2
+  // the wheel handler is made once, but the planets (and so the size of the system) can still be growing: always read the latest
+  const sysOdRef = useRef(sysOd)
+  sysOdRef.current = sysOd
   const { camera, gl } = useThree()
   const group = useRef<THREE.Group>(null)
   const planetRefs = useRef<(THREE.Group | null)[]>([])
@@ -165,7 +168,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
   const stars = useMemo(() => {
     const a = new Float32Array(4000 * 3)
     for (let i = 0; i < 4000; i++) {
-      const v = new V(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize().multiplyScalar(260000)
+      const v = new V(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize().multiplyScalar(1500000)
       a.set([v.x, v.y, v.z], i * 3)
     }
     return a
@@ -207,7 +210,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
   // the camera for this scene sees very far
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    cam.near = 20; cam.far = 700000; cam.fov = 50
+    cam.near = 20; cam.far = 3000000; cam.fov = 50
     cam.up.set(0, 1, 0)
     cam.updateProjectionMatrix()
     const c = C.current
@@ -239,7 +242,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       if (C.current.mode !== 'free') return
-      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, Math.min(sysOd * 3.2, 235000)) // far enough to see every orbit at once; the star sphere ends at 260000
+      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, sysOdRef.current * 1.8)
     }
     canvas.addEventListener('pointerdown', pd)
     window.addEventListener('pointerup', pu)
@@ -257,7 +260,6 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     const dt = Math.min(dtRaw, 0.1)
     const t = state.clock.elapsedTime + 1000
     clockT.current = t
-    if (import.meta.env.DEV) Object.assign(window, { __sys: { od: Math.round(C.current.od), outer: Math.round(outerOrbit()), sysOd: Math.round(sysOd), cam: Math.round(camera.position.length()), far: (camera as THREE.PerspectiveCamera).far, near: (camera as THREE.PerspectiveCamera).near } })
     const c = C.current
     planets.forEach((p, i) => {
       const g = planetRefs.current[i]
