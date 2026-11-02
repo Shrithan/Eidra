@@ -211,7 +211,7 @@ export function useRoom(channel: string, name: string, capacityHint = 24, look =
     if (roomRef.current) return roomRef.current.send('chat', { text })
     // Never present a local demo echo as Twitch chat: it is misleading when the
     // game server/Twitch credentials are unavailable.
-    pushChat({ kind: 'system', name: '', text: 'Message not sent: reconnect to the Watchworld server to post in Twitch chat.' })
+    pushChat({ kind: 'system', name: '', text: 'Message not sent: reconnect to the Orbyx server to post in Twitch chat.' })
   }, [name, pushChat, showBubble])
   const direct = useCallback((targetId: string, text: string) => {
     const clean = text.trim().slice(0, 280); if (!clean || !targetId) return

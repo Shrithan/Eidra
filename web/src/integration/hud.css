@@ -1,0 +1,173 @@
+/* Orbyx orbital HUD. Presentation only; the world and interaction handlers own behavior. */
+:root{--hud-surface:#151321;--hud-raised:#211c32;--hud-input:#0e0c17;--hud-line:#40364f;--hud-ink:#f5f0fc;--hud-muted:#baafcc;--hud-accent:#b698f6;--hud-active:#38294f;--hud-action:#c5abff;--hud-action-ink:#241532;--hud-radius:14px}
+:root :is(.ww-explorer,.theatre,.ww-playback-dialog,.station-hud,.station-prompt){color:var(--hud-ink);font-family:Inter,system-ui,sans-serif;accent-color:var(--hud-accent)}
+:root :is(.ww-explorer,.theatre,.ww-playback-dialog,.station-hud) ::selection{background:#c5abff;color:#241532}
+:root :is(.ww-explorer,.theatre,.ww-playback-dialog,.station-hud) :is(button,a,input,select,textarea):focus-visible{outline:2px solid #e2ccff;outline-offset:3px}
+:root :is(.ww-explorer,.theatre,.ww-playback-dialog,.station-hud) :is(input,textarea){caret-color:#dac6ff}
+:root :is(.board,.sphere-legend,.sphere-tiers,.home-panel,.rewards-panel,.quest-panel,.omni-list,.phone-panel,.world-chat,.chat,.station-hud,.map-list){scrollbar-width:thin;scrollbar-color:#716080 #151321}
+:root :is(.ww-explorer,.theatre) button{transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+:root :is(.ww-explorer,.theatre) button:disabled{cursor:default}
+/* The top edge is a single navigation surface rather than separate floating pills. */
+:root .ww-explorer .top{height:76px;padding:16px 24px;gap:12px;background:#13111eee;border-bottom:1px solid var(--hud-line);z-index:32}
+:root .ww-explorer .top h1{font:600 25px 'Inter',sans-serif;letter-spacing:-.025em;color:#eee2ff;flex:none}
+:root .ww-explorer .omni{top:17px;width:clamp(230px,34vw,560px)}
+:root .ww-explorer .omni-input{height:42px;background:#0c0a13;border:1px solid #514160;border-radius:9px;padding:11px 16px;color:var(--hud-ink);font-size:13px;box-shadow:none}
+:root .omni-input::placeholder{color:#b5a5c6;opacity:1}
+:root .omni-list{background:var(--hud-surface);border:1px solid var(--hud-line);border-radius:12px;margin-top:12px;padding:6px;box-shadow:0 16px 36px #0007}
+:root .omni-row{padding:12px 10px;border-radius:7px;gap:12px}
+:root .omni-row:hover,:root .omni-row.on{background:var(--hud-active)}
+:root .omni-main small,:root .omni-go{opacity:1;color:var(--hud-muted)}
+:root .top .dock-corner{gap:7px}
+:root .top .dock-corner :is(.character-launch,.quest-launch){min-height:40px;background:#262033;border:1px solid #4d3e60;border-radius:8px;padding:9px 12px;color:#e8daf9;font-size:12px;font-weight:600}
+:root .top .dock-corner :is(.character-launch,.quest-launch):hover{background:#392a4e;border-color:#b698f6}
+:root .top :is(.login,.ww-logout){min-height:40px;display:inline-flex;align-items:center;background:var(--hud-action);color:var(--hud-action-ink);border:0;border-radius:8px;font-size:12px;font-weight:700;padding:10px 14px;white-space:nowrap}
+:root .top .login:hover{background:#dac6ff}
+:root .top .who{background:transparent;border:0;color:#d6c5e9;font-size:12px;padding:6px}
+/* Navigation rails keep existing content, ordering and click targets. */
+:root .sphere-left{left:20px;top:96px;width:224px;gap:12px}
+:root .sphere-right{right:20px;top:96px;gap:12px;max-height:calc(100dvh - 290px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#716080 transparent}
+:root :is(.board,.sphere-legend,.sphere-tiers,.map-box){background:#151321f5;border:1px solid var(--hud-line);border-radius:var(--hud-radius);color:var(--hud-ink);font-family:Inter,system-ui,sans-serif;box-shadow:none}
+:root .board{padding:16px 10px 10px}
+:root .board-head{font-size:14px;font-weight:650;padding:0 5px 3px}
+:root .board>small{font-size:11px;color:var(--hud-muted);opacity:1;padding:0 5px 12px}
+:root .board>button{padding:11px 8px;margin:0;border-radius:7px;background:transparent;gap:10px;border-top:1px solid #ffffff09}
+:root .board>button:hover,:root .board>button.on{background:var(--hud-active)}
+:root .board>button i{font-size:11px;color:#bca9d4;opacity:1;font-variant-numeric:tabular-nums}
+:root .board>button span{font-size:13px;line-height:1.35}
+:root .board>button span b{font-weight:600}
+:root .board>button span em{font-size:11px;color:var(--hud-muted);opacity:1;margin-top:2px}
+:root .board>button small{font-size:11px;color:#dbc7ff;opacity:1;font-variant-numeric:tabular-nums}
+:root .board .board-hint{color:var(--hud-muted);opacity:1;padding:10px 5px 0}
+:root :is(.sphere-legend,.sphere-tiers){min-width:196px;padding:15px 14px;gap:6px}
+:root .sphere-legend-title{color:#d4c2eb;font-size:11px;font-weight:600;line-height:1.5;margin-bottom:6px}
+:root .sphere-legend button{padding:8px 7px;margin:0 -7px;border-radius:6px;min-height:30px;font-size:12px}
+:root .sphere-legend button:hover,:root .sphere-legend button.on{background:var(--hud-active)}
+:root .sphere-legend button small,:root .sphere-tiers :is(span,small){color:var(--hud-muted);font-size:11px;font-variant-numeric:tabular-nums}
+:root .sphere-legend i{width:7px;height:7px;border-radius:2px;margin-right:9px}
+:root .sphere-tiers>div:not(.sphere-legend-title){padding:3px 0;font-size:12px}
+:root .home-btn{padding:10px;border-radius:7px;background:#37244e;color:#e2ccff;font-size:11px;font-family:inherit;border:1px solid #58416d}
+:root .home-btn:hover{background:#513568}
+/* Low controls stay compact enough to leave the world visible. */
+:root .sphere-hud{bottom:20px;padding:12px 14px;gap:14px;background:#151321f5;border:1px solid var(--hud-line);border-radius:10px;color:var(--hud-muted);font-size:11px;line-height:1.5;max-width:calc(100vw - 560px)}
+:root .sphere-hud b{color:var(--hud-ink);font-weight:600}
+:root .sphere-hud button{background:var(--hud-action);color:var(--hud-action-ink);border-radius:6px;min-height:34px;padding:8px 12px;font-size:11px}
+:root .sphere-hud button.alt{background:#2c243b;color:#e5d3ff;border:1px solid #59456d}
+:root :is(.sphere-near,.interact-card,.card,.ww-location){background:#191423fa;border:1px solid #70578c;border-radius:14px;color:var(--hud-ink);box-shadow:0 12px 32px #0005}
+:root .card{padding:22px;width:310px;right:20px;bottom:180px}
+:root .card h2{font:500 25px 'Inter',sans-serif;margin-bottom:10px}
+:root .card p{font-size:13px;line-height:1.6;color:var(--hud-muted)}
+:root .card .x{width:32px;height:32px;border-radius:7px;color:#e6d6f8}
+:root :is(.go,.near-enter){background:var(--hud-action);color:var(--hud-action-ink);border:0;border-radius:8px;padding:12px;font-weight:650;font-size:13px}
+:root :is(.card .alt-add,.near-add){background:#30223e;color:#e1caff;border:1px solid #655078;border-radius:8px;padding:10px}
+:root .home-card{right:20px;bottom:20px;max-width:290px;background:#1c1628f5;border:1px solid #6b527f;border-radius:14px;padding:12px 14px;gap:12px;font-family:Inter,system-ui,sans-serif;backdrop-filter:none}
+:root .home-card.empty{border-style:solid}
+:root .home-card b{font-size:13px;font-weight:600;line-height:1.5}
+:root .home-card small{font-size:11px;line-height:1.5;opacity:1;color:var(--hud-muted)}
+:root .home-card .home-orb{width:38px;height:38px}
+:root .home-info button{background:#c5abff;color:#241532;border-radius:6px;font:600 11px Inter,system-ui,sans-serif;padding:7px 10px}
+:root .home-info button.alt{background:#3c2b50;color:#e4d1fa}
+/* All modal menus share the same type, spacing and field treatment. */
+:root :is(.home-panel,.rewards-panel,.quest-panel,.ww-playback-dialog,.station-hud){background:#191523;color:var(--hud-ink);border:1px solid #6a527e;border-radius:16px;padding:22px;box-shadow:0 18px 50px #0008;font-family:Inter,system-ui,sans-serif}
+:root :is(.rewards-panel,.quest-panel){top:calc(100% + 17px);width:360px;max-height:calc(100dvh - 120px)}
+:root :is(.home-panel h2,.ww-playback-dialog h2){font:500 26px 'Inter',sans-serif}
+:root :is(.rewards-panel,.quest-panel)>header{padding-bottom:16px;border-bottom:1px solid var(--hud-line);gap:12px}
+:root .rewards-panel header small{display:block;font-size:11px;font-weight:400;color:var(--hud-muted);line-height:1.5;margin-top:6px;max-width:250px}
+:root :is(.home-panel,.rewards-panel,.quest-panel,.phone-panel,.ww-location,.station-hud) :is(input:not([type=range]),select,textarea){background:var(--hud-input);border:1px solid #58446a;border-radius:7px;color:var(--hud-ink);min-height:36px;padding:8px 10px;font-size:12px;max-width:100%}
+:root .part-controls{grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+:root .part-controls label{gap:6px;font-size:11px;color:var(--hud-muted)}
+:root .credits-balance{background:#30213f;color:#e0c7ff;font-size:15px;padding:14px;border-radius:8px}
+:root .outfit{padding:12px 0;font-size:12px;border-color:#40334d}
+:root :is(.outfit button,.home-panel button,.pick,.station-hud button,.station-prompt button){background:#39264d;color:#ead9ff;border:1px solid #66507b;border-radius:7px;font-size:12px;padding:9px 12px}
+:root .home-panel button.primary{background:var(--hud-action);color:var(--hud-action-ink);border-color:transparent}
+:root .home-panel button.danger{background:#502b3c;color:#ffd1dd}
+:root :is(.home-panel p,.home-panel label,.home-count){opacity:1;color:var(--hud-muted);line-height:1.6}
+:root .quest{padding:18px 0;gap:16px;border-color:#40334d}
+:root .quest b{font-size:13px;line-height:1.5}
+:root .quest :is(small,em){font-size:11px;line-height:1.6;color:var(--hud-muted)}
+:root .quest-progress{height:5px;background:#3a3047;border-radius:3px;margin-top:8px}
+:root .quest-progress>i{background:#b698f6}
+:root .rewards-login{background:#2e213e;border:1px solid #59416e;color:#e0c9f8;padding:12px;font-size:12px;line-height:1.6}
+/* Communication surfaces: less phone chrome, more readable content. */
+:root .phone-panel{background:#191523;border:1px solid #67517b;border-radius:16px;box-shadow:0 16px 40px #0007;backdrop-filter:none;width:340px}
+:root .phone-header{background:#241c31;min-height:68px;padding:14px;border-color:#40334d}
+:root .phone-app-icon{background:#413053;color:#eadbff;border-radius:9px;width:32px;height:32px;flex-basis:32px}
+:root .phone-heading b{font-size:13px}
+:root :is(.phone-heading small,.phone-now-playing span,.phone-now-playing small,.phone-update-copy p,.phone-footer,.phone-update-heading time){color:var(--hud-muted)}
+:root .phone-now-playing{padding:14px;border-color:#40334d}
+:root .phone-now-playing b{font-size:13px;line-height:1.6}
+:root :is(.phone-signal,.phone-live-dot.live){box-shadow:none}
+:root .phone-tabs{margin:12px 14px 4px;gap:4px;padding:4px;border-radius:9px;background:#100d18}
+:root .phone-tabs button{background:transparent;color:#cbbbdc;padding:9px;border-radius:6px;font-size:12px}
+:root .phone-tabs button.active{background:#49315e;color:#f7efff}
+:root .phone-update{padding:14px 2px;border-color:#40334d}
+:root .phone-update-icon{background:#322240;color:#d9bfff;border-radius:7px}
+:root .phone-footer{font-size:10px;line-height:1.5;padding:12px;border-color:#40334d}
+:root .phone-launch{background:#21182e;color:#e8d7fc;border:1px solid #6c5085;border-radius:10px;box-shadow:none;min-height:42px;padding:6px 13px 6px 8px}
+:root .phone-launch-icon{border-radius:6px;background:#3a2850;color:#e1caff;width:27px;height:27px}
+:root .phone-launch:hover,:root .phone-launch.open{background:#3a2850;border-color:#b698f6}
+:root .world-chat{background:#171320f5;border:1px solid #5a426f;border-radius:14px;backdrop-filter:none;left:20px;bottom:20px;width:300px}
+:root .wc-title{padding:12px;border-color:#40334d}
+:root .wc-tabs button{padding:5px 9px;color:var(--hud-muted);border-radius:6px}
+:root .wc-tabs button.on{background:#49315e;color:#f7efff}
+:root .wc-log{padding:12px;font-size:12px;line-height:1.6;gap:6px}
+:root .wc-log b{color:#d5b8ff}
+:root .wc-sys,:root .wc-title small{color:var(--hud-muted)}
+:root .world-chat form{padding:9px;border-color:#40334d}
+:root .world-chat input{background:#0e0b16;border-color:#58446a;border-radius:7px;padding:10px;color:var(--hud-ink)}
+:root .wc-person button{background:#49315e;border-radius:5px;color:#f3e7ff;padding:6px 8px}
+:root :is(.world-chat input,.chat input,.planet-search-input)::placeholder{color:#b5a5c6;opacity:1}
+/* Shared theatre UI; no changes to playback positioning or the embedded player. */
+:root .theatre .bar{background:#171320;border-color:#483755;padding:12px 16px;gap:14px}
+:root .theatre .bar-title{color:var(--hud-muted);font-size:13px}
+:root .theatre .ghost{background:#2a2038;border:1px solid #5e4772;border-radius:7px;padding:9px 12px;color:#eadbfc}
+:root .theatre .chat{background:#16111e;border-color:#453450}
+:root .theatre .chat-title{padding:18px 16px;font-size:13px;border-color:#453450;color:#dfc5ff}
+:root .theatre .chat-log{padding:16px;font-size:13px;line-height:1.7;gap:10px}
+:root .theatre .chat form{padding:12px;border-color:#453450}
+:root .theatre .chat input{background:#0d0913;border:1px solid #604774;border-radius:7px;padding:11px 12px;min-width:0;color:#f5f0fc}
+:root .theatre .chat form button{background:var(--hud-action);color:var(--hud-action-ink);border-radius:7px}
+:root .world .emotes button{background:#21172df5;border:1px solid #624876;border-radius:9px;min-width:40px;min-height:40px}
+:root :is(.hint,.sphere-note,.interact-hint,.notice,.sphere-toast,.reward-toast){background:#23192ff5;border:1px solid #6b5080;color:#e1d0f2;border-radius:9px;padding:10px 14px;font:12px/1.6 Inter,system-ui,sans-serif;box-shadow:none}
+:root .hint b{color:#f6efff}
+:root .ww-playback-dialog button,:root .ww-playback-reopen{background:#39264d;color:#ead9ff;border:1px solid #70578c;border-radius:7px}
+:root .station-prompt{background:#21182efa;border:1px solid #9471b4;border-radius:14px;font:14px/1.6 Inter,system-ui,sans-serif}
+:root .station-hud h2{font-family:'Inter',sans-serif;color:#e4ceff}
+@media(max-width:1100px){:root .ww-explorer .top{padding:16px}:root .ww-explorer .top h1{font-size:22px}:root .sphere-left{left:14px;width:200px}:root .sphere-right{right:14px}:root :is(.sphere-legend,.sphere-tiers){min-width:180px}:root .sphere-hud{max-width:calc(100vw - 480px);flex-wrap:wrap;justify-content:center}}
+@media(max-width:900px){:root .ww-explorer .top{height:122px;align-items:flex-start;padding:12px 16px}:root .ww-explorer .omni{top:68px;width:calc(100vw - 32px)}:root .ww-explorer .omni-input{height:40px}:root .sphere-left,:root .sphere-right{top:138px}:root .sphere-left{width:180px;max-height:calc(100dvh - 340px)}:root .sphere-right{max-height:calc(100dvh - 350px)}:root .sphere-legend{gap:2px;padding:12px}:root .sphere-legend button{padding:6px}:root .sphere-tiers{padding:12px}:root .sphere-hud{max-width:calc(100vw - 32px);bottom:12px;width:max-content}:root .home-card{bottom:112px;right:14px}:root .phone-dock.world-phone{bottom:210px}:root .top .dock-corner :is(.rewards-panel,.quest-panel){position:fixed;right:12px;top:130px;max-height:calc(100dvh - 150px)}}
+@media(max-width:620px){:root .ww-explorer .top{gap:6px;padding:12px}:root .ww-explorer .top h1{font-size:20px}:root .top .dock-corner{gap:5px}:root .top .dock-corner :is(.character-launch,.quest-launch){padding:8px!important;font-size:11px!important;min-height:38px}:root .top .login,:root .top .ww-logout{padding:10px 8px;min-height:38px;font-size:10px}:root .sphere-left{left:10px;width:150px;gap:8px}:root .board{padding:10px 5px}:root .board-head{font-size:12px}:root .board>small{font-size:10px;padding-bottom:7px}:root .board>button{padding:9px 5px;gap:5px}:root .board>button span{font-size:11px}:root .board>button span em{font-size:10px}:root .board>button small{font-size:10px}:root .sphere-right{right:10px;max-width:162px;max-height:calc(100dvh - 370px)}:root :is(.sphere-legend,.sphere-tiers){min-width:150px;max-width:162px;padding:10px}:root .sphere-legend button{font-size:10px;padding:6px 4px}:root .sphere-legend button small{font-size:9px;padding-left:6px}:root .sphere-legend-title{font-size:10px}:root .sphere-tiers>div:not(.sphere-legend-title){font-size:10px;gap:4px}:root .sphere-tiers :is(span,small){font-size:9px}:root .home-card{bottom:105px;right:10px;max-width:235px;padding:10px}:root .home-card b{font-size:12px}:root .home-card small{font-size:10px}:root .sphere-hud{width:calc(100vw - 20px);max-width:none;gap:8px;padding:8px;font-size:10px}:root .sphere-hud button{min-height:30px;padding:6px 9px;font-size:10px}:root .phone-dock.world-phone{bottom:194px;right:10px}:root .phone-panel{width:min(340px,calc(100vw - 20px))}:root .card{right:10px;bottom:190px;width:min(310px,calc(100vw - 20px));padding:18px}:root .top .dock-corner :is(.rewards-panel,.quest-panel){width:calc(100vw - 24px);right:12px}:root .part-controls{grid-template-columns:1fr 1fr}:root .theatre .bar{flex-wrap:wrap;gap:8px}:root .theatre .bar-title{flex-basis:50%;font-size:11px}}
+@media(prefers-reduced-motion:reduce){:root :is(.ww-explorer,.theatre) button{transition:none}}
+/* Keep navigation density predictable inside the scrollable rail. */
+:root .sphere-right>.sphere-legend,:root .sphere-right>.sphere-tiers{flex-shrink:0;gap:3px}
+:root .sphere-legend button{line-height:1.4;min-height:30px;height:auto;padding:6px 7px}
+:root .board{border-color:var(--hud-line)!important}
+/* Workshop pixels are game content, not HUD controls. */
+:root .station-hud .station-pixels button{padding:0;margin:0;border:0;border-radius:0;min-width:0}
+:root .sphere-legend button{box-sizing:border-box}
+:root .interact-card{padding:18px;gap:12px}
+:root .ic-head small{color:var(--hud-muted)}
+:root .ic-emotes button{background:#30213e;border-color:#5d4472;border-radius:7px;min-height:38px}
+:root .ic-actions button{background:#30213e;border-color:#5d4472;color:#e7d6fa;padding:10px 6px}
+:root .interact-card input{background:var(--hud-input);border-color:#604774;border-radius:7px;padding:11px}
+:root .interact-card form button{background:var(--hud-action);color:var(--hud-action-ink);border-radius:7px}
+@media(max-width:620px){:root .sphere-legend button{min-height:28px}:root .ww-explorer .top{column-gap:5px}:root .top .dock-corner :is(.character-launch,.quest-launch){padding:8px 6px!important}}
+/* Menus opened from the navigation sit above floating phone controls. */
+:root .ww-explorer .top{z-index:50}
+/* Authenticated HUD: keep the account controls and search in separate columns. */
+:root .ww-explorer .top:has(.ww-account){display:grid;grid-template-columns:max-content minmax(160px,1fr) max-content max-content max-content;column-gap:14px}
+:root .ww-explorer .top:has(.ww-account) .omni{position:relative;left:auto;top:auto;transform:none;width:min(560px,100%);justify-self:center}
+:root .ww-explorer .top:has(.ww-account) .dock-corner{margin-left:0}
+:root .top .who.ww-account{display:inline-flex;align-items:center;gap:9px;max-width:155px;min-height:40px;margin:0;padding:8px 12px;border:1px solid #534064;border-radius:8px;background:#241a30;color:#eadcf8;font:600 12px/1.4 Inter,system-ui,sans-serif;overflow:hidden}
+:root .ww-account-status{width:6px;height:6px;flex:none;border-radius:50%;background:#c5abff}
+:root .ww-account-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root .top:has(.ww-account) .ww-logout{background:#30213e;border:1px solid #705481;color:#ead9ff}
+:root .top:has(.ww-account) .ww-logout:hover{background:#49305d;border-color:#b698f6}
+:root .home-card .home-orb-btn,:root .home-card .home-orb-img{width:64px;height:64px}
+:root .home-card .home-orb-img{filter:none;animation:none}
+:root .home-card:not(.empty){min-width:250px;max-width:310px;border-color:#705481;background:#1c1628f5}
+:root .home-card:not(.empty) .home-info{min-width:0}
+:root .home-card:not(.empty) .home-info>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+:root .phone-tab-badge,:root .phone-launch-badge{background:#c5abff;color:#241532}
+@media(max-width:1100px){:root .ww-explorer .top:has(.ww-account){column-gap:8px}:root .top .who.ww-account{max-width:110px;padding:8px}}
+@media(max-width:900px){:root .ww-explorer .top:has(.ww-account){display:flex}:root .ww-explorer .top:has(.ww-account) .omni{position:absolute;left:50%;top:68px;transform:translateX(-50%);width:calc(100vw - 32px)}:root .ww-explorer .top:has(.ww-account) .dock-corner{margin-left:auto}:root .top .who.ww-account{padding:8px;min-height:38px;max-width:100px}:root .ww-account-status{display:none}}
+@media(max-width:620px){:root .top .who.ww-account{max-width:75px;font-size:10px;padding:6px}:root .ww-explorer .top:has(.ww-account){column-gap:5px}:root .home-card:not(.empty){min-width:0;max-width:260px}:root .home-card .home-orb-btn,:root .home-card .home-orb-img{width:48px;height:48px}:root .home-card:not(.empty) .home-info>b{max-width:165px}}
+@media(max-width:370px){:root .top .who.ww-account{max-width:55px}:root .ww-explorer .top:has(.ww-account) h1{font-size:17px}}

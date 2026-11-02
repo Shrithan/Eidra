@@ -71,21 +71,29 @@ function labelTexture(name: string, sub: string, color: string) {
   const c = document.createElement('canvas')
   c.width = 512; c.height = 160
   const g = c.getContext('2d')!
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-  g.lineWidth = 12
-  g.strokeStyle = 'rgba(6,6,16,0.9)'
-  g.font = '700 70px system-ui, sans-serif'
-  g.strokeText(name, 256, 62, 500)
-  g.fillStyle = color
-  g.fillText(name, 256, 62, 500)
-  g.font = '500 36px system-ui, sans-serif'
-  g.lineWidth = 8
-  g.strokeText(sub, 256, 126, 500)
-  g.fillStyle = '#e8e8f2'
-  g.fillText(sub, 256, 126, 500)
   t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
+  const texture = t
+  const draw = () => {
+    g.clearRect(0, 0, c.width, c.height)
+    g.textAlign = 'center'
+    g.textBaseline = 'middle'
+    g.lineJoin = 'round'
+    g.lineWidth = 7
+    g.strokeStyle = 'rgba(14,14,16,0.95)'
+    g.font = '600 64px Inter, sans-serif'
+    g.strokeText(name, 256, 62, 500)
+    g.fillStyle = color
+    g.fillText(name, 256, 62, 500)
+    g.font = '500 30px Inter, sans-serif'
+    g.lineWidth = 5
+    g.strokeText(sub, 256, 126, 500)
+    g.fillStyle = '#dedee3'
+    g.fillText(sub, 256, 126, 500)
+    texture.needsUpdate = true
+  }
+  draw()
+  void document.fonts?.load('600 64px Inter').then(draw).catch(() => {})
   labelCache.set(key, t)
   return t
 }
@@ -231,7 +239,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     const wheel = (e: WheelEvent) => {
       e.preventDefault()
       if (C.current.mode !== 'free') return
-      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, sysOd * 1.5)
+      C.current.od = THREE.MathUtils.clamp(C.current.od * Math.exp(e.deltaY * 0.0012), 3000, Math.min(sysOd * 3.2, 235000)) // far enough to see every orbit at once; the star sphere ends at 260000
     }
     canvas.addEventListener('pointerdown', pd)
     window.addEventListener('pointerup', pu)
@@ -249,6 +257,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     const dt = Math.min(dtRaw, 0.1)
     const t = state.clock.elapsedTime + 1000
     clockT.current = t
+    if (import.meta.env.DEV) Object.assign(window, { __sys: { od: Math.round(C.current.od), outer: Math.round(outerOrbit()), sysOd: Math.round(sysOd), cam: Math.round(camera.position.length()), far: (camera as THREE.PerspectiveCamera).far, near: (camera as THREE.PerspectiveCamera).near } })
     const c = C.current
     planets.forEach((p, i) => {
       const g = planetRefs.current[i]

@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { SphereLayout } from './sphereLayout'
 
-const FONT = "'Fredoka', 'Nunito', ui-rounded, system-ui, sans-serif"
+const FONT = "'Inter', system-ui, sans-serif"
 const boxArt = (name: string) => `https://static-cdn.jtvnw.net/ttv-boxart/${encodeURIComponent(name)}-144x192.jpg`
 const compact = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k` : String(n))
 
@@ -50,7 +50,7 @@ function tagTexture(name: string, color: string, viewers: number, streams: numbe
   img.crossOrigin = 'anonymous'
   img.onload = () => { art = img; draw() }
   img.src = boxArt(name)
-  void document.fonts?.load(`700 48px Fredoka`).then(draw).catch(() => {})
+  void document.fonts?.load(`700 48px Inter`).then(draw).catch(() => {})
   return tex
 }
 

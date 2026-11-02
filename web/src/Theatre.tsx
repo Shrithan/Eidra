@@ -120,7 +120,7 @@ export default function Theatre({ stream, name, account, appearance, quests, log
                   <header className="phone-header">
                     <div className="phone-app-icon" aria-hidden="true">W</div>
                     <div className="phone-heading">
-                      <b>{account ? `${account.displayName}'s phone` : 'Watchworld phone'}</b>
+                      <b>{account ? `${account.displayName}'s phone` : 'Orbyx phone'}</b>
                       <small>{account ? `Connected as @${account.login}` : 'Sign in for personal Twitch updates'}</small>
                     </div>
                     <span className="phone-signal" title={mode === 'live' ? 'Connected to the theatre' : 'Demo room'} />

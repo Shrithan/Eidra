@@ -13,7 +13,7 @@ const V = THREE.Vector3
 export const ISLAND_R = 680
 /** Everything on the island was laid out for a 560 m radius; this scales those positions up to the current size. */
 const F = ISLAND_R / 560
-const FONT = "'Fredoka', ui-rounded, system-ui, sans-serif"
+const FONT = "'Inter', system-ui, sans-serif"
 
 const rand = (seed: number) => { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
 const compact = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${(n / 1e3).toFixed(n >= 1e4 ? 0 : 1)}k`)
@@ -24,25 +24,30 @@ function labelSprite(s: Stream, color: string) {
   const c = document.createElement('canvas')
   c.width = 512; c.height = 160
   const g = c.getContext('2d')!
-  g.fillStyle = 'rgba(10,8,24,0.86)'
-  g.beginPath(); g.roundRect(6, 6, 500, 148, 28); g.fill()
-  g.lineWidth = 6; g.strokeStyle = color; g.beginPath(); g.roundRect(6, 6, 500, 148, 28); g.stroke()
-  g.textAlign = 'center'
-  g.fillStyle = '#fff'
-  let size = 56
-  g.font = `700 ${size}px ${FONT}`
-  while (g.measureText(s.displayName).width > 460 && size > 26) { size -= 4; g.font = `700 ${size}px ${FONT}` }
-  g.fillText(s.displayName, 256, 70)
-  g.font = `500 32px ${FONT}`
-  g.fillStyle = color
-  g.fillText(`${compact(s.viewers)} watching`, 256, 112)
-  g.fillStyle = 'rgba(255,255,255,0.6)'
-  g.font = `500 24px ${FONT}`
-  g.fillText(s.game.slice(0, 34), 256, 142)
   const t = new THREE.CanvasTexture(c)
+  const draw = () => {
+    g.clearRect(0, 0, c.width, c.height)
+    g.fillStyle = 'rgba(10,8,24,0.86)'
+    g.beginPath(); g.roundRect(6, 6, 500, 148, 28); g.fill()
+    g.lineWidth = 6; g.strokeStyle = color; g.beginPath(); g.roundRect(6, 6, 500, 148, 28); g.stroke()
+    g.textAlign = 'center'
+    g.fillStyle = '#fff'
+    let size = 56
+    g.font = `700 ${size}px ${FONT}`
+    while (g.measureText(s.displayName).width > 460 && size > 26) { size -= 4; g.font = `700 ${size}px ${FONT}` }
+    g.fillText(s.displayName, 256, 70)
+    g.font = `500 32px ${FONT}`
+    g.fillStyle = color
+    g.fillText(`${compact(s.viewers)} watching`, 256, 112)
+    g.fillStyle = 'rgba(255,255,255,0.6)'
+    g.font = `500 24px ${FONT}`
+    g.fillText(s.game.slice(0, 34), 256, 142)
+    t.needsUpdate = true
+  }
+  draw()
   t.colorSpace = THREE.SRGBColorSpace
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }))
-  void document.fonts?.load('700 40px Fredoka').then(() => { t.needsUpdate = true }).catch(() => {})
+  void document.fonts?.load('700 40px Inter').then(draw).catch(() => {})
   return sp
 }
 

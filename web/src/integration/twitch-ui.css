@@ -1,0 +1,82 @@
+/* Orbyx's Twitch-inspired interface. Identity and interaction remain Orbyx's. */
+:root{--bg:#0e0e10;--panel:#18181b;--line:#35353b;--text:#efeff1;--quiet:#adadb8;--accent:#9146ff;--hud-surface:#18181b;--hud-raised:#1f1f23;--hud-input:#0e0e10;--hud-line:#35353b;--hud-ink:#efeff1;--hud-muted:#adadb8;--hud-accent:#bf94ff;--hud-active:#302443;--hud-action:#9146ff;--hud-action-ink:#fff;--hud-radius:6px;font-family:Inter,Arial,sans-serif}
+:root :is(.ww-explorer,.theatre,.orbyx-page,.station-hud,.ww-playback-dialog){font-family:Inter,Arial,sans-serif;color:#efeff1}
+:root :is(.ww-explorer,.theatre,.orbyx-page) ::selection{background:#9146ff;color:white}
+:root :is(.ww-explorer,.theatre,.orbyx-page) :is(button,a,input,select,textarea):focus-visible{outline:2px solid #bf94ff;outline-offset:3px}
+:root :is(.board,.sphere-legend,.sphere-tiers,.home-card,.map-box,.phone-panel,.world-chat,.card,.rewards-panel,.quest-panel,.home-panel,.interact-card,.ww-location,.station-hud,.ww-playback-dialog){background:#18181bf5;border-color:#35353b;border-radius:6px;color:#efeff1}
+:root .board{border-color:#35353b!important}
+:root .ww-explorer .top{background:#18181b;border-bottom:1px solid #303035}
+:root .ww-explorer .top h1{font:800 23px/1.3 Inter,Arial,sans-serif;letter-spacing:-.035em;color:#efeff1}
+:root .ww-explorer .omni-input{background:#0e0e10;border-color:#67676f;border-radius:6px;color:#efeff1}
+:root .omni-input::placeholder{color:#adadb8}
+:root .omni-list{background:#18181b;border-color:#46464e;border-radius:6px}
+:root .omni-row:hover,:root .omni-row.on{background:#2f2f35}
+:root .top .dock-corner :is(.character-launch,.quest-launch){background:#2b2b30;color:#efeff1;border:1px solid transparent;border-radius:4px}
+:root .top .dock-corner :is(.character-launch,.quest-launch):hover{background:#3a3a40;border-color:transparent}
+:root .top .login{background:#9146ff;color:#fff;border-radius:4px}
+:root .top .login:hover{background:#772ce8}
+:root .top .who.ww-account{background:#26262c;border-color:#46464e;border-radius:4px;color:#efeff1}
+:root .ww-account-status{background:#bf94ff}
+:root .top:has(.ww-account) .ww-logout{background:#2b2b30;border-color:transparent;border-radius:4px;color:#efeff1}
+:root .top:has(.ww-account) .ww-logout:hover{background:#3a3a40}
+:root :is(.board-head,.sphere-legend-title,.chat-title,.phone-heading b){color:#efeff1}
+:root .board>button{border-radius:4px;border-top-color:#ffffff0a}
+:root .board>button:hover,:root .board>button.on,:root .sphere-legend button:hover,:root .sphere-legend button.on{background:#2f2f35}
+:root .board>button span b{font-weight:650}
+:root :is(.board>small,.board>button span em,.board>button i,.sphere-legend button small,.sphere-tiers span,.sphere-tiers small,.card p,.phone-heading small,.phone-update-copy p,.phone-footer,.phone-update-heading time,.wc-sys,.wc-title small){color:#adadb8;opacity:1}
+:root .board>button small{color:#bf94ff}
+:root :is(.home-btn,.home-info button,.go,.near-enter,.sphere-hud button,.home-panel button.primary,.interact-card form button,.theatre .chat form button){background:#9146ff;color:white;border-color:transparent;border-radius:4px}
+:root :is(.home-btn,.home-info button,.go,.near-enter,.sphere-hud button,.home-panel button.primary,.interact-card form button,.theatre .chat form button):hover{background:#772ce8}
+:root :is(.home-info button.alt,.card .alt-add,.near-add,.sphere-hud button.alt,.theatre .ghost,.outfit button,.home-panel button,.ic-actions button,.ww-playback-reopen,.ww-playback-dialog button){background:#2b2b30;color:#efeff1;border-color:#46464e;border-radius:4px}
+:root .home-card:not(.empty){background:#18181bf5;border-color:#53535f}
+:root .home-card b{color:#efeff1}
+:root .card h2,:root :is(.home-panel h2,.ww-playback-dialog h2),:root .station-hud h2{font-family:Inter,Arial,sans-serif;font-weight:750;color:#efeff1;letter-spacing:-.025em}
+:root :is(.home-panel,.rewards-panel,.quest-panel,.phone-panel,.ww-location,.station-hud) :is(input:not([type=range]),select,textarea){background:#0e0e10;border-color:#67676f;border-radius:4px;color:#efeff1}
+:root :is(.home-panel p,.home-panel label,.home-count,.part-controls label,.quest small,.quest em,.phone-now-playing span,.phone-now-playing small){color:#adadb8}
+:root :is(.rewards-panel,.quest-panel)>header,:root .outfit,:root .quest,:root .phone-header,:root .phone-now-playing,:root .phone-update,:root .phone-footer{border-color:#35353b}
+:root .credits-balance{background:#26212f;color:#bf94ff;border-radius:4px}
+:root .rewards-login{background:#26212f;border-color:#584171;color:#ded2ed;border-radius:4px}
+:root .quest-progress{background:#35353b}
+:root .quest-progress>i{background:#9146ff}
+:root .phone-header{background:#1f1f23}
+:root .phone-app-icon,:root .phone-update-icon{background:#30213f;color:#bf94ff;border-radius:4px}
+:root .phone-tabs{background:#0e0e10;border-radius:4px}
+:root .phone-tabs button{border-radius:3px;color:#adadb8}
+:root .phone-tabs button.active,:root .wc-tabs button.on{background:#38264f;color:#efeff1}
+:root .phone-launch{background:#26262c;border-color:#53535f;border-radius:4px;color:#efeff1}
+:root .phone-launch-icon{background:#38264f;color:#bf94ff;border-radius:3px}
+:root .phone-launch:hover,:root .phone-launch.open{background:#34343b;border-color:#a970ff}
+:root .phone-tab-badge,:root .phone-launch-badge{background:#9146ff;color:#fff}
+:root .world-chat input,:root .theatre .chat input,:root .interact-card input{background:#0e0e10;border-color:#67676f;border-radius:4px;color:#efeff1}
+:root .wc-log b{color:#bf94ff}
+:root .theatre .bar,:root .theatre .chat{background:#18181b;border-color:#35353b}
+:root :is(.hint,.sphere-hud,.sphere-note,.interact-hint,.notice,.sphere-toast,.reward-toast,.station-prompt){background:#18181bf5;border-color:#46464e;color:#dedee3;border-radius:6px}
+/* The introduction keeps its orbital movement; the visual language is sharper. */
+:root .orbyx-page{--orbyx-bg:#0e0e10;--orbyx-ink:#efeff1;--orbyx-muted:#adadb8;--orbyx-purple:#bf94ff;background:#0e0e10;scrollbar-color:#67676f #0e0e10}
+:root .orbyx-page :is(h1,h2){font-family:Inter,Arial,sans-serif;font-weight:800;letter-spacing:-.04em;line-height:1.04}
+:root .orbyx-brand{font-family:Inter,Arial,sans-serif;font-weight:850;letter-spacing:-.04em;color:#efeff1}
+:root .orbyx-brand svg{color:#a970ff}
+:root .has-scrolled .orbyx-header{background:#18181bf7;border-color:#35353b}
+:root .orbyx-page .orbyx-enter{background:#9146ff;color:#fff!important;border-radius:4px;box-shadow:none}
+:root .orbyx-page .orbyx-enter:hover{background:#772ce8;box-shadow:none}
+:root .orbyx-about-link,:root .orbyx-scroll-cue{color:#adadb8!important}
+:root .orbyx-hero-word{font-family:Inter,Arial,sans-serif;font-weight:850;-webkit-text-stroke-color:#4b3a62}
+:root .orbyx-hero h1{font-size:clamp(48px,6.2vw,88px)}
+:root .orbyx-marquee{background:#18181b;border-color:#46464e}
+:root .orbyx-marquee span{font-family:Inter,Arial,sans-serif;font-weight:750;color:#efeff1}
+:root .orbyx-marquee i{border-color:#a970ff}
+:root .orbyx-wayfinder{background:#18181bf5;border-color:#35353b;border-radius:4px;color:#adadb8}
+:root .orbyx-wayfinder .active{color:#bf94ff}
+:root .orbyx-wayfinder .active i{background:#a970ff}
+:root .orbyx-stop-1 .orbyx-stop-copy{background:#18181bf5;border-color:#35353b;border-radius:6px}
+:root .orbyx-stop-detail{border-color:#46464e;color:#bf94ff}
+:root .orbyx-why{background:#9146ff;color:#fff}
+:root .orbyx-why h2 em{color:#fff}
+:root .orbyx-why-copy{color:#fff}
+:root .orbyx-why-orbits{opacity:.2}
+:root .orbyx-finale,:root .orbyx-footer{background:#0e0e10}
+:root .orbyx-footer{border-color:#35353b}
+:root .orbyx-footer p,:root .orbyx-footer small{color:#adadb8}
+:root .orbyx-departure,:root .orbyx-arrival{background:#0e0e10}
+:root .orbyx-departure-label{color:#bf94ff}
+@media(max-width:620px){:root .orbyx-hero h1{font-size:clamp(40px,10.5vw,60px)}:root .orbyx-page h2{font-size:clamp(36px,9.5vw,48px)}:root .orbyx-brand{font-size:27px}}

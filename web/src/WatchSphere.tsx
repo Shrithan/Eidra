@@ -522,8 +522,8 @@ function labelTexture(text: string, color: string) {
     g.textAlign = 'center'
     g.textBaseline = 'middle'
     let size = 124
-    g.font = `700 ${size}px 'Fredoka', ui-rounded, system-ui, sans-serif`
-    while (g.measureText(text).width > 960 && size > 40) { size -= 6; g.font = `700 ${size}px 'Fredoka', ui-rounded, system-ui, sans-serif` }
+    g.font = `700 ${size}px 'Inter', system-ui, sans-serif`
+    while (g.measureText(text).width > 960 && size > 40) { size -= 6; g.font = `700 ${size}px 'Inter', system-ui, sans-serif` }
     g.lineJoin = 'round'
     g.lineWidth = 26
     g.strokeStyle = 'rgba(20,12,44,0.9)'
@@ -535,7 +535,7 @@ function labelTexture(text: string, color: string) {
     t.needsUpdate = true
   }
   draw()
-  void document.fonts?.load('700 48px Fredoka').then(draw).catch(() => {})
+  void document.fonts?.load('700 48px Inter').then(draw).catch(() => {})
   return t
 }
 

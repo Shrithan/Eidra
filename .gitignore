@@ -3,3 +3,6 @@ node_modules/
 .env.local
 .DS_Store
 dist/
+
+# Local visual review captures
+/.impeccable/review/

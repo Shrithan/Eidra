@@ -62,7 +62,7 @@ export async function relayHype(channel:string,users:Identity[]) {
   if(process.env.HYPE_TO_TWITCH!=='1' || !configured || Date.now()-(hypeSent.get(channel)??0)<120000)return;
   const user=users.find(u=>credentials.has(u.id));if(!user)return;
   hypeSent.set(channel,Date.now());persistSessions();
-  await sendChat(channel,user,'The Watchworld theatre is hyped! 🔥');
+  await sendChat(channel,user,'The Orbyx theatre is hyped! 🔥');
 }
 
 const validated=new Map<string,number>();
