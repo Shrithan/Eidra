@@ -33,6 +33,9 @@
 <sub>Real captures from the app, running on live Twitch data.</sub>
 </div>
 
+> [!NOTE]
+> **The hosted demo shows the top 5,000 live streams, not all of Twitch.** It runs on a free host with limited memory (512 MB) and no permanent disk, so we cap the stream index at 5,000 channels, busiest first. This is a hosting limit, not a limit of the app: run it yourself with `MAX_INDEXED_STREAMS` unset and Orbyx indexes every live stream it can fetch (well over 100,000 at peak), with every planet, building and name scaled to match.
+
 > 👉 **Judges: no setup needed.** Open the [live demo](https://watchworld.onrender.com), click **Enter**, and scroll or drag around. The free host sleeps when idle, so the very first load can take about a minute.
 
 <img src="docs/divider.svg" alt="" width="100%"/>
@@ -194,7 +197,7 @@ Never commit `.env` or `server/data/`; both are gitignored.
 | Variable | Effect |
 | --- | --- |
 | `BOTS=0` / `VITE_BOTS=0` | No simulated bot residents or viewers: only real people appear. Used on the deployed site. |
-| `MAX_INDEXED_STREAMS` | Caps how many live streams are indexed (unset means no cap; the hosted demo uses 5000). |
+| `MAX_INDEXED_STREAMS` | Caps how many live streams are indexed (unset means no cap). The hosted demo sets 5000 because the free host has only 512 MB of memory. |
 | `DEMO_STREAMS=1` | Keep the labelled demo streamers alongside real data. Off by default, so a real Twitch index never shows invented channels. |
 | `PUBLIC_URL`, `ALLOWED_ORIGINS` | The public address and any extra allowed origins (Render fills the first in itself). |
 
