@@ -5,6 +5,8 @@ import './sphere.css'
 import { type Stream } from './api'
 import { loadAllStreams, onStreams, streamsNow } from './streamStore'
 import { onGoto, takeGoto } from './sphereSearch'
+import { Lots } from './sphereLots'
+import { Signals, Traffic } from './sphereTraffic'
 import { COUNTRY_COLORS, GROUPS, TIERS, frontDir, groupIndex, layoutSystem, type PlanetData, type SphereLayout } from './sphereLayout'
 import { SystemScene } from './sphereSystem'
 import { buildRoadNet } from './sphereCity'
@@ -814,6 +816,9 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
       <Railways R={R} ground={layout.ground} />
       <Residents world={people} layout={layout} self={S} />
       <Labels layout={layout} />
+      <Traffic net={net} layout={layout} />
+      <Signals net={net} layout={layout} />
+      <Lots layout={layout} near={(p, fn) => grid.near(p, fn)} />
       {focus && <CountryBeacon layout={layout} game={focus} />}
       {selIdx >= 0 && <Beacon layout={layout} idx={selIdx} />}
       <group ref={avatar} visible={false}>
