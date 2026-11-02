@@ -1,10 +1,22 @@
 # Watchworld
 
-A Twitch-only world: explore Earth and eight fictional genre planets, walk into streamers' theatres, sit together, wave and emote, and talk through real Twitch chat.
+A Twitch-only 3D world. Every genre is a planet, every game is a country on it, and every live streamer is a building. Walk the streets, step into a streamer's theatre, watch together, play multiplayer games, build a planet of your own and invite friends.
 
-## Setup and run
+Live demo: https://watchworld.onrender.com (free hosting: the first load after a quiet period can take about a minute).
 
-Use **Node.js 22.13+** (Node 24 recommended). The backend uses built-in SQLite; Node may print its experimental-feature notice.
+## What it does
+
+- **Nine genre planets plus a central island.** Streamers are placed by game and by size (hut, cottage, house, tower, skyscraper by viewer count). Elite streamers (3,000+ viewers) live on the central island. Wonders, blimps with each game's box art, roads, trains, traffic and terrain are generated per planet.
+- **Walk or fly anywhere.** Click any point on a planet to fly down to it, then walk (WASD, Shift to run, Space to jump). `O` goes back up to orbit. Wonders are solid and land you at their front.
+- **Theatres.** Walk into a streamer's building (or press the Enter theatre button) to watch their real Twitch stream with other viewers, sit, wave, emote and chat. Logged-in viewers chat to the real Twitch chat.
+- **People.** Everyone on a planet sees each other live, with world chat, emotes (`1`-`6`) and a People list. Press **Q** next to someone to open a card with emotes, a private message, a planet invite, add friend and mute. Outfits are shared, so friends see your clothes, hat and necklace.
+- **Games.** Four multiplayer games per planet in the form of game blocks scattered through the cities: chess-style board games, pool, shooters with projectiles, cover maps and more.
+- **Your own planet.** Pick favourite streamers (or press "Add to my planet" on any building), get an invite link, search your planet's streamers and fly straight to them. Friends who open the link visit your planet.
+- **Rewards.** Log in with Twitch to earn credits from quests (theatre time, social quests, and the 15-minute "Hidden Gems" quest on small streamers, whose watch time is counted by the server) and spend them on outfits, hats and necklaces. The Character and Quests buttons are visible to everyone; only logged-in players can use them. A Quests tab in the in-theatre phone tracks your progress.
+
+## Run it locally
+
+Use **Node.js 22.13+**.
 
 ```sh
 npm run setup
@@ -12,88 +24,60 @@ cp server/.env.example server/.env
 npm run dev
 ```
 
-Open **http://localhost:5173**. One command starts Vite on 5173 and Express/Colyseus on 2567; Vite proxies `/api` and `/auth`. Stop existing processes if those ports are occupied. Mock mode works with empty Twitch credentials: 28 labeled demo streams span every hall size and all eight planets; room chat stays local and auth returns 501.
+Open **http://localhost:5173**. One command starts Vite (5173) and the Express/Colyseus server (2567). Without Twitch credentials the server runs on seeded demo data, so everything works for a first look.
 
-For real Twitch:
+### With real Twitch data and login
 
 1. Register a confidential application in the [Twitch developer console](https://dev.twitch.tv/console/apps).
-2. Register **http://localhost:2567/auth/twitch/callback** as its OAuth redirect URL.
-3. Set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_REDIRECT_URI`, and a stable random `SESSION_SECRET` in `server/.env`. Generate a secret locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
-4. Click **Log in with Twitch**. Scopes are `user:read:chat` and `user:write:chat`. Login survives backend restarts; refresh tokens rotate and persist. Rooms reconnect separately.
+2. Add the OAuth redirect URL exactly: `http://localhost:2567/auth/twitch/callback` (and for a deployment, `https://YOUR-SITE/auth/twitch/callback`).
+3. In `server/.env` set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_REDIRECT_URI` (optional on a deployment) and a long random `SESSION_SECRET`.
+4. Restart and click **Log in with Twitch**. Scopes: `user:read:chat`, `user:write:chat`, `user:read:follows`.
 
-Never commit `.env` or `server/data/`. Both are gitignored. Session cookies/tokens remain server-side in owner-only JSON; other persistent data uses SQLite in the private data directory. Keep `SESSION_SECRET` stable. This is a single-process development deployment.
+Never commit `.env` or `server/data/`; both are gitignored.
 
-## Up to 5,000 live streams, honest locations
+### Settings
 
-The Helix poller fetches `first=100` pages in viewer order until it has 5,000 unique channels, retries GET requests on 429 using Twitch's reset headers, and publishes the capped view atomically. This matches the walkable world's 5,000-stream limit and avoids waiting for Twitch's entire live catalog. The previous snapshot remains usable during a crawl or upstream failure. A saved cursor resumes after restart; a crawl older than 30 minutes restarts. Sweeps target a three-minute start cadence; a long sweep schedules the next one 15 seconds after finishing. Twitch's changing viewer ordering can cause repeats/omissions, so the result is a best-effort view rather than an instantaneous snapshot of every channel. If Twitch has fewer than 5,000 live channels, labeled demo streams can fill otherwise empty regions.
+| Variable | Effect |
+| --- | --- |
+| `BOTS=0` / `VITE_BOTS=0` | No simulated bot residents or viewers: only real people appear. Used on the deployed site. |
+| `MAX_INDEXED_STREAMS` | Caps how many live streams are indexed (unset means no cap; Render uses 5000). |
+| `DEMO_STREAMS=1` | Keep the labelled demo streamers alongside real data. Off by default, so a real Twitch index never shows invented channels. |
+| `PUBLIC_URL`, `ALLOWED_ORIGINS` | The public address and any extra allowed origins (Render fills the first in itself). |
 
-The entire index lives on disk; HTTP and UI use bounded pages. `/api/streams` defaults to 3,000 rows, allows `limit=1..5000` and `offset`, and supports combined `planet`, `bbox`, `language`, `game` and `q` filters. Responses are viewer-sorted arrays with total/paging headers. Examples:
+See [DEPLOY.md](DEPLOY.md) for the Render and Docker setup.
 
-```text
-/api/streams?planet=earth&limit=2000
-/api/streams?planet=arcadia&language=en&offset=2000
-/api/streams?game=Minecraft&limit=100
-/api/streams?planet=earth&bbox=-125,25,-65,50
-/api/streams?q=streamerlogin
-/api/planets
-/api/index-status
-```
+## Controls
 
-Earth shows opted-in cities, usable researched public bases, and explicitly labeled geographic demos. **Language never establishes a real location.** Unplaced streams get stable hash-derived slots on Chatterra, Arcadia, Warzone, Mythos, Strata, Harmonia, Craftus or Odyssey. These are fictional places, not inferred residences. The genre/category mapping is in `server/src/planets.ts`.
+| Key | Action |
+| --- | --- |
+| WASD, Shift, Space | Walk, run, jump |
+| Mouse (click the scene first), Esc | Look, release the mouse |
+| O | Back to orbit |
+| T | World chat |
+| 1-6 | Emotes |
+| Q | Talk to the person next to you |
+| H | Add the building you are near to your planet |
+| E / button | Enter a theatre or use a game block |
 
-Use the world selector to switch Earth/planets. Planet textures are generated locally. Search spans the full index across all worlds; selecting a result switches worlds as needed. The list pages through results and initially renders 80 rows; the globe shows up to 800 pins at far zoom or 2,000 nearby. On narrow screens, **Browse streams** opens the result drawer. Click a stream or pin, then **Enter theatre**.
-
-Signed-in streamers can choose one of 230 bundled cities under **Your map location**. The server validates the input and replaces it with the municipal centroid, coarsened before storage and jittered for display. A live channel gets an opt-in pin; offline channels are never fabricated as live. Removing the opt-in removes that city declaration; independent public research or labeled demos may remain.
-
-## Optional OpenAI location research
-
-Research is **off by default**. Enable it deliberately in `server/.env`:
-
-```dotenv
-OPENAI_API_KEY=your-local-key
-OPENAI_MODEL=gpt-5.5
-RESEARCH_ENABLED=1
-RESEARCH_DAILY_BUDGET=100
-RESEARCH_CONCURRENCY=1
-```
-
-`RESEARCH_DAILY_BUDGET` limits attempted logins per UTC day, not dollars. `0` prevents spending; concurrency is clamped to 1–4. Up to 25 logins are processed per call, with smaller tail batches allowed. Reservations happen on disk before a paid call, so failures/restarts cannot reset the day's allowance. Workers never block the Helix crawl. Logs contain queue depth, login/call counts, input/output tokens, and search-call counters—not keys, descriptions, locations or logins.
-
-The Responses API uses `web_search`, strict JSON-schema output, and the exact privacy rules in the request. Inputs contain only public channel login, display name, title, category, language and Helix description. Panel statements can be used only if available on the official public channel through search; there is no private panel API or invented panel text. Metadata/search content is treated as untrusted data.
-
-Zod validates every result. Raw model coordinates are never retained: known cities resolve against the bundled municipal list, unknown cities reduce to a verified ISO country centroid, and city positions receive deterministic jitter of roughly 2–8 km. City/country are the finest retained fields. Thin evidence yields no location and a planet. Opt-ins always win. Research is labeled **researched, approximate**, includes confidence and precision, and links matched public citations when available. Uncited results are explicitly labeled model knowledge, which can be outdated.
-
-Results (including no-location answers), source metadata, model, timestamps, queue leases, budget counters and description hashes persist in `server/data/world.sqlite`. Descriptions themselves are not persisted. Workers recheck public descriptions at most daily; the LLM runs again only after 30 days or a description change. Changed descriptions invalidate the old researched pin until refreshed. A failed batch retries later with durable budget accounting. Mock data uses a separate `world-mock.sqlite`, preserving the real index.
-
-Illustrative cost per **1,000 researched channels** with GPT-5.5: **about $30–$60**, assuming 1–2 searches/channel, roughly 2,000 search input tokens/search, 200 other input tokens/channel and 200–640 billed output tokens/channel (including reasoning). This is an estimate, not a spending cap or a measured result. At the current published prices, model input/output is $5/$30 per million tokens and web search is $10 per 1,000 search calls plus model-priced search content. More searching, retries or a different model changes the cost. See [model pricing](https://developers.openai.com/api/docs/models/gpt-5.5) and [tool pricing](https://developers.openai.com/api/docs/pricing). Start with a small daily budget and use the emitted usage counters.
-
-## Theatre integration
-
-On entry, the **Start the stream** panel exposes the existing Twitch player. If it is paused, click Twitch’s Play button, then **Continue to theatre**. **Stream controls** reopens the same player without reloading the video or leaving the room.
-
-The shared plot is 120 m × 120 m; movement is limited to 9 m/s. Audience averages persist as an EMA; room capacity is fixed on creation at 12/24/60/128/240 seats. Seats remain exclusive. Waves, eight emotes, room chat and three-level crowd hype use the rate limits in `CONTRACT.md`.
-
-EventSub starts when an authenticated viewer joins, forwards channel chat, chat notices, channel title/category changes, and stream start/end updates. The in-game phone keeps an Updates feed beside a Chat tab with room and Twitch chat; chat sending uses the existing room message. EventSub handles keepalives/reconnects and deduplicates notifications, then closes/deletes subscriptions when the room's subscribers leave. Room chat posts as the authenticated user and also broadcasts locally; Twitch echoes can appear separately. Anonymous visitors can use the room chat in mock mode but do not receive Twitch updates. Optional `HYPE_TO_TWITCH=1` relays one short hype message through an authorized participant, at most once per two minutes per channel; default off.
-
-## Build and verify
+## Tests and build
 
 ```sh
-npm run build
-# With the normal server running:
-npm run test:e2e
-# Isolated tests; no paid API calls:
+npm run build                  # server and web
+npm --prefix server test       # realtime end-to-end checks
 npm --prefix server run test:catalog
-npm --prefix server run test:research
-npm --prefix server run test:audience
-# Port 2567 must be free for these isolated server tests:
-npm --prefix server run test:persistence
 npm --prefix server run test:twitch
 ```
 
-The research test uses a stubbed LLM and checks schema failures, centroid snapping/jitter, coarse-only output, opt-in precedence, stable planet assignment, budget accounting, cache reuse and description changes. Catalog tests cover pagination, 429 retry, filters, counts and cursor resumption. E2E checks movement/yaw, seat bounds/exclusivity, wave, chat and hype.
+The REST and realtime contract is in [CONTRACT.md](CONTRACT.md); the game catalogue is in [GAMES.md](GAMES.md).
 
-For an explicit live chat smoke test after browser login, run `cd server && node --import tsx scripts/live-twitch.ts`. It posts **one real message** to the signed-in user's own Twitch channel and checks its EventSub echo. `LIVE_TWITCH_CHANNEL` selects another channel. No cookies/tokens are printed.
+## How we built it
 
-Backend build output is `server/dist/`; run it with `npm --prefix server start`. Frontend output is `web/dist/`. Built-in geodata is attributed to the bundled `world-countries` project (ODbL); the curated municipal list ships under `server/src/data/`. Colyseus 0.16 matches the frontend SDK and retains its documented legacy nanoid audit findings; a major upgrade needs coordination.
+Watchworld was built by a team of two with AI coding tools, each used for different parts:
 
-The source of truth for REST, realtime and ownership is [CONTRACT.md](CONTRACT.md).
+- **Codex (OpenAI):** the multiplayer station-games system (the four games per planet, game engines and the 3D variants), written from the brief in [STATIONS_PROMPT.md](STATIONS_PROMPT.md) and [STATIONS_UPDATE_PROMPT.md](STATIONS_UPDATE_PROMPT.md); and the avatar, quest, in-theatre phone and Twitch-follows features.
+- **Claude Code (Anthropic):** the sphere world renderer (planets, terrain, roads, wonders, blimps), the central island, custom planets, viewer crowds, player interactions, rewards fixes, deployment and the review and testing passes.
+- **[Team to confirm before submitting: which tool wrote the original Express/Colyseus backend, the catalog and the theatre rooms.]**
+
+## Credits
+
+Third-party models and licences are listed in [CREDITS.md](CREDITS.md). Twitch is a trademark of Twitch Interactive; Watchworld is an independent project.

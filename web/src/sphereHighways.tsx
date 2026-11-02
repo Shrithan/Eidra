@@ -87,11 +87,15 @@ export function buildRibbons(segs: [THREE.Vector3, THREE.Vector3][], layout: Sph
     const len = A.distanceTo(B) * R
     const steps = Math.max(2, Math.ceil(len / stepLen))
     const hs: number[] = [], dirs: THREE.Vector3[] = []
+    let steep = false
     for (let s = 0; s <= steps; s++) {
       d.copy(A).lerp(B, s / steps).normalize()
       dirs.push(d.clone())
-      hs.push(Math.max(layout.ground(d), 0.35)) // across water the road becomes a causeway
+      const g = layout.ground(d)
+      if (g <= 0.2 || g > ROAD_MAX) steep = true // a road never dips into the sea or climbs into a mountain: that stretch is simply not built
+      hs.push(Math.max(g, 0.35))
     }
+    if (steep) continue
     const sm = hs.map((_, s) => {
       let t = 0, k = 0
       for (let o = -2; o <= 2; o++) { const q = hs[s + o]; if (q !== undefined) { t += q; k++ } }

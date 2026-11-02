@@ -37,8 +37,8 @@ export async function crawlAllStreams() {
    }
    if(next && stagedCount>=MAX_INDEXED_STREAMS)next=''; // a capped host publishes once it has its share
    setMeta('crawl_cursor',next);
-   // Publish only after the final page, then retain explicitly labelled demos for empty regions.
-   if(!next){db.exec('DELETE FROM streams; INSERT INTO streams SELECT * FROM crawl;');for(const seed of MOCK_STREAMS)if(!db.prepare('SELECT 1 FROM streams WHERE login=?').get(seed.login))storeStream({...seed,location:seed.location?{...seed.location,source:'seed'}:null},'streams',true);db.exec('DELETE FROM crawl');setMeta('crawl_active','0');setMeta('crawl_complete',String(Date.now()));}
+   // Publish only after the final page, then, only when DEMO_STREAMS=1, keep the labelled demo streamers. A real Twitch index never shows invented channels.
+   if(!next){db.exec('DELETE FROM streams; INSERT INTO streams SELECT * FROM crawl;');if(process.env.DEMO_STREAMS==='1')for(const seed of MOCK_STREAMS)if(!db.prepare('SELECT 1 FROM streams WHERE login=?').get(seed.login))storeStream({...seed,location:seed.location?{...seed.location,source:'seed'}:null},'streams',true);db.exec('DELETE FROM crawl');setMeta('crawl_active','0');setMeta('crawl_complete',String(Date.now()));}
   });
   if(!next)break;cursor=next;
   await new Promise(resolve=>setTimeout(resolve,30));

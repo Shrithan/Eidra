@@ -26,6 +26,8 @@ type CharacterRig = {
 /** The shared character rig used in the walkable world and inside every theatre. */
 export default function BlockyCharacter({ motion, appearance }: { motion: React.MutableRefObject<CharacterMotion>; appearance?: Appearance }) {
   const [rig, setRig] = useState<CharacterRig | null>(null)
+  // other people's outfits arrive as a fresh object on every update: rebuild only when something really changed, or the hat never finishes loading
+  const lookKey = appearance ? [appearance.skin, appearance.top, appearance.bottom, appearance.face, appearance.hat, appearance.chain].join('|') : ''
   const current = useRef('idle')
   const waveClock = useRef(0)
 
@@ -55,7 +57,10 @@ export default function BlockyCharacter({ motion, appearance }: { motion: React.
     const look = appearance ?? { skin: '#d69b70', top: '#5c70c7', bottom: '#30334a', face: '#2a1a18', hat: 'none', chain: 'none' }
     // Cosmetics have their own authored materials. Detach them before rebuilding
     // avatar body groups so a shirt/skin change can never overwrite or erase them.
-    rig.root.getObjectByName('__cosmetics')?.removeFromParent()
+    // hats ride on the head and necklaces on the torso, so they move with the animation: take the old ones off first
+    const old: THREE.Object3D[] = []
+    rig.root.traverse((o) => { if (o.name.startsWith('__cosmetic')) old.push(o) })
+    old.forEach((o) => o.removeFromParent())
     rig.root.updateMatrixWorld(true)
     const box = new THREE.Box3().setFromObject(rig.root), height = Math.max(.001, box.max.y - box.min.y)
     const point = new THREE.Vector3()
@@ -88,11 +93,11 @@ export default function BlockyCharacter({ motion, appearance }: { motion: React.
     const hatFile: Record<string,string>={crown:'/models/accessories/crown.glb',cap:'/models/accessories/top-hat.glb',cowboy:'/models/accessories/cowboy-hat.glb'}
     const chainFile: Record<string,string>={gold:'/models/accessories/teeth-necklace.glb',silver:'/models/accessories/chainmail-necklace.glb'}
     let cancelled=false
-    const attach=async(file:string,kind:'hat'|'chain')=>{try{const gltf=await loadGLTF(file);if(cancelled)return;const item=SkeletonUtils.clone(gltf.scene);item.traverse(o=>o.frustumCulled=false);item.updateMatrixWorld(true);const assetBox=new THREE.Box3().setFromObject(item),size=assetBox.getSize(new THREE.Vector3()),center=assetBox.getCenter(new THREE.Vector3());const inv=1/Math.max(.0001,rig.root.scale.y),localTop=box.max.y*inv,localBottom=box.min.y*inv;const wide=kind==='hat'?size.x:Math.max(size.x,size.z);const target=(kind==='hat' ? .66 : .62)*inv;const scale=target/Math.max(.0001,wide);item.scale.setScalar(scale);item.position.set(-center.x*scale,kind==='hat'?localTop-assetBox.min.y*scale:localBottom+(box.max.y-box.min.y)*.68*inv-center.y*scale,-center.z*scale);item.name=`__cosmetic_${kind}`;let extras=rig.root.getObjectByName('__cosmetics') as THREE.Group|null;if(!extras){extras=new THREE.Group();extras.name='__cosmetics';rig.root.add(extras)}extras.add(item)}catch(error){console.warn('[character] accessory load failed',file,error)}}
+    const attach=async(file:string,kind:'hat'|'chain')=>{try{const gltf=await loadGLTF(file);if(cancelled)return;const item=SkeletonUtils.clone(gltf.scene);item.traverse(o=>o.frustumCulled=false);item.updateMatrixWorld(true);const assetBox=new THREE.Box3().setFromObject(item),size=assetBox.getSize(new THREE.Vector3()),center=assetBox.getCenter(new THREE.Vector3());const inv=1/Math.max(.0001,rig.root.scale.y),localTop=box.max.y*inv,localBottom=box.min.y*inv;const wide=kind==='hat'?size.x:Math.max(size.x,size.z);const target=(kind==='hat' ? .66 : .62)*inv;const scale=target/Math.max(.0001,wide);item.scale.setScalar(scale);item.position.set(-center.x*scale,kind==='hat'?localTop-assetBox.min.y*scale:localBottom+(box.max.y-box.min.y)*.68*inv-center.y*scale,-center.z*scale);item.name=`__cosmetic_${kind}`;rig.root.add(item);rig.root.updateMatrixWorld(true);(rig.root.getObjectByName(kind==='hat'?'head':'torso')??rig.root).attach(item)}catch(error){console.warn('[character] accessory load failed',file,error)}}
     if(hatFile[look.hat])void attach(hatFile[look.hat],'hat')
     if(chainFile[look.chain])void attach(chainFile[look.chain],'chain')
     return()=>{cancelled=true}
-  }, [rig, appearance])
+  }, [rig, lookKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useFrame((_, dtRaw) => {
     if (!rig) return

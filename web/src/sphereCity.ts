@@ -4,7 +4,7 @@ import { roadSides } from './sphereLattice'
 
 const V = THREE.Vector3
 /** The highest ground (metres above sea level) a highway may run over: the flat city is 2.2 m, so this allows gentle hills only. */
-export const ROAD_MAX = 7
+export const ROAD_MAX = 9
 
 /**
  * The street network: streets run along the edges of the plot grid (every second grid line, so plots sit in 2 x 2 blocks),
@@ -31,8 +31,11 @@ export function buildRoadNet(layout: SphereLayout): RoadNet {
   const rural: boolean[] = []
   // a street never runs into the sea: both ends and the middle of every segment must be dry land
   const wet = new Map<number, boolean>()
-  const dry = (i: number) => { let w = wet.get(i); if (w === undefined) { w = layout.ground(verts[i]) > 0.8; wet.set(i, w) } return w }
-  const midDry = (a: number, b: number) => layout.ground(new V().copy(verts[a]).add(verts[b]).normalize()) > 0.8
+  // nor up a mountainside: a street only runs over ground that is dry and low
+  const drivable = (h: number) => h > 0.8 && h < ROAD_MAX
+  const dry = (i: number) => { let w = wet.get(i); if (w === undefined) { w = drivable(layout.ground(verts[i])); wet.set(i, w) } return w }
+  const q = new V()
+  const midDry = (a: number, b: number) => [0.25, 0.5, 0.75].every((t) => drivable(layout.ground(q.copy(verts[a]).lerp(verts[b], t).normalize())))
   layout.plots.forEach((p, pi) => {
     const c = L.cells[p.cell]
     const sides = roadSides(c)

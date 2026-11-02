@@ -16,8 +16,9 @@ try{
  const {crawlAllStreams}=await import('../src/catalog.js');const {queryStreams,getPlanets,parseStreamQuery}=await import('../src/streams.js');
  await crawlAllStreams();assert.deepEqual(pages,['','','second']);
  assert.equal(queryStreams({q:'last_page'}).streams[0].login,'last_page');
- assert.equal(queryStreams({planet:'harmonia',limit:1}).total,3);assert.equal(queryStreams({planet:'harmonia',limit:1,offset:1}).streams.length,1);
- assert.equal(getPlanets().find(p=>p.id==='harmonia')!.count,3);
+ // a real Twitch index never keeps invented demo channels
+ assert.equal(queryStreams({planet:'harmonia',limit:1}).total,2);assert.equal(queryStreams({planet:'harmonia',limit:1,offset:1}).streams.length,1);
+ assert.equal(getPlanets().find(p=>p.id==='harmonia')!.count,2);
  assert.throws(()=>parseStreamQuery({limit:'99999'}));assert.throws(()=>parseStreamQuery({bbox:'0,90,10,-90'}));
  const {getMeta}=await import('../src/db.js');
  const firstFetch=globalThis.fetch;let interrupt=true;
