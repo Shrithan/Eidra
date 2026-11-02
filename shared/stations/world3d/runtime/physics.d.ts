@@ -1,0 +1,13 @@
+import { type Body, type Box, type Vec3, type Input3D, type Hit } from "./model.js";
+export declare const clamp: (v: number, a: number, b: number) => number;
+export declare function validateInput(v: unknown): Input3D | null;
+export declare function createBody(p: Vec3, team?: number): Body;
+export declare function boxAt(b: Box, time: number): Box;
+export declare function stepBody(body: Body, input: Input3D, boxes: Box[], dt: number, time: number, speed?: number): void;
+export declare function aim(yaw: number, pitch: number): Vec3;
+export declare function rayBox(origin: Vec3, dir: Vec3, b: Box, max?: number): Hit | null;
+export declare function rayCapsule(origin: Vec3, dir: Vec3, body: Body, max?: number): number | null;
+export declare function raycast(origin: Vec3, dir: Vec3, boxes: Box[], players: Record<string, Body>, exclude: string, max?: number, time?: number): Hit | null;
+export declare function reconcile(authoritative: Body, pending: Input3D[], boxes: Box[], time: number, speed?: number, gameId?: string, points?: import("./model.js").Waypoint[]): Body;
+export declare function stepRail(body: Body, input: Input3D, points: import("./model.js").Waypoint[], dt: number, time: number): boolean;
+export declare function stepZip(body: Body, points: import("./model.js").Waypoint[], dt: number): boolean;

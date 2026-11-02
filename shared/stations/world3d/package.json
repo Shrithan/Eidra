@@ -1,0 +1,9 @@
+{
+  "name": "watchworld-station-world3d",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../../server/node_modules/typescript/bin/tsc -p tsconfig.json",
+    "check": "node ../../../server/node_modules/typescript/bin/tsc -p tsconfig.json --noEmit"
+  }
+}
