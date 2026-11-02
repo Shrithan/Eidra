@@ -1,0 +1,21 @@
+# Render blueprint: a free web service built from the Dockerfile. One service serves the site, the API and the live game rooms.
+services:
+  - type: web
+    name: watchworld
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/config
+    autoDeploy: true
+    envVars:
+      - key: BOTS
+        value: "0"
+      # the free plan has 512 MB and forgets its data when it restarts, so it indexes the top 5,000 streams instead of all of them
+      - key: MAX_INDEXED_STREAMS
+        value: "5000"
+      - key: SESSION_SECRET
+        generateValue: true
+      # fill these in the dashboard to turn on Twitch login (optional: without them the site runs in demo mode with guest names)
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
