@@ -36,7 +36,17 @@
 > [!NOTE]
 > **The hosted demo shows the top 5,000 live streams, not all of Twitch.** It runs on a free host with limited memory (512 MB) and no permanent disk, so we cap the stream index at 5,000 channels, busiest first. This is a hosting limit, not a limit of the app: run it yourself with `MAX_INDEXED_STREAMS` unset and Orbyx indexes every live stream it can fetch (well over 100,000 at peak), with every planet, building and name scaled to match.
 
-> 👉 **Judges: no setup needed.** Open the [live demo](https://watchworld.onrender.com), click **Enter**, and scroll or drag around. The free host sleeps when idle, so the very first load can take about a minute.
+<div align="center">
+
+# ⚡ No setup needed
+
+## [▶ Open the live demo](https://watchworld.onrender.com)
+
+**Click Enter, then scroll and drag around.** Sign in with Twitch only if you want to chat or earn rewards.
+
+<sub>The free host sleeps when idle, so the very first load can take about a minute.</sub>
+
+</div>
 
 <img src="docs/divider.svg" alt="" width="100%"/>
 
