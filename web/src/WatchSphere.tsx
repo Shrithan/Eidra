@@ -380,17 +380,7 @@ export default function WatchSphere({ selected, onSelect, onEnter, name, appeara
             ))}
             <button className={view.kind === 'island' ? 'on' : ''} onClick={() => setView({ kind: 'system', from: null, fly: -2 })}><i style={{ background: '#58e1ff' }} />Central island<small>{elite.length.toLocaleString()}</small></button>
           </div>
-          <div className="sphere-tiers">
-            <div className="sphere-legend-title">Buildings by viewers</div>
-            {TIERS.slice().reverse().map((t, k, arr) => (
-              <div key={t.id}>
-                <b>{t.name}</b>
-                <span>{t.min >= 1000 ? `${t.min.toLocaleString()}+` : k === 0 ? `${t.min}+` : `${t.min}–${(arr[k - 1].min - 1).toLocaleString()}`}</span>
-                <small>{planets.reduce((n, p) => n + p.layout.plots.filter((pl) => pl.tier === TIERS.indexOf(t)).length, 0).toLocaleString()}</small>
-              </div>
-            ))}
-            <button className="home-btn" onClick={() => setHomeOpen(true)}>{home ? (home.visiting ? 'Visiting a friend · options' : 'My planet · edit') : '+ Build my own planet'}</button>
-          </div>
+
           </div>
         </>
       )}

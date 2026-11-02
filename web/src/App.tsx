@@ -6,7 +6,7 @@ import OmniSearch from './OmniSearch'
 import type { TwitchUpdate } from './useRoom'
 import { CharacterMenu, QuestBook, useRewards, type Target } from './Rewards'
 import { FALLBACK_WORLDS, placeLabel, type World } from './integration/worlds'
-import { toggleStream, onMyPlanet, getHome, subscribeHome, saveHome } from './homePlanet'
+import { getHome, subscribeHome, saveHome } from './homePlanet'
 import { fetchMe, fetchFollows, fetchWatch, fetchStreams, fetchPlanets, logout, type Me, type Stream } from './api'
 import { pickStreamers } from './questPicks'
 import { onStreams, addStreams } from './streamStore'
@@ -85,7 +85,6 @@ function WatchworldApp() {
   {selected&&<div className="card"><button className="x" onClick={()=>setSelected(null)} aria-label="Close">×</button><h2>{selected.displayName}</h2><p>{selected.title}</p><p className="meta">{selected.game} · {selected.viewers.toLocaleString()} watching · {placeLabel(selected,worlds)}</p>
    {selected.location?.source==='researched'&&<><p className="ww-researched">Researched, approximate · {selected.location.confidence} confidence · {selected.location.precision} level</p>{selected.location.sources?.length?<p className="ww-sources">{selected.location.sources.map((source,i)=><a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">Public source {i+1}</a>)}</p>:<small className="ww-researched">Model knowledge; no linked source. May be outdated.</small>}</>}
    <button className="go" onClick={()=>enterTheatre(selected)}>Enter theatre</button>
-   {!getHome()?.visiting&&<button className="go alt-add" onClick={()=>{toggleStream(selected.login);bumpHome(n=>n+1)}}>{onMyPlanet(selected.login)?'✓ On my planet · remove':'+ Add to my planet'}</button>}
   </div>}
   {transitionOverlay}
   <WorldPhone account={me} updates={phoneUpdates}/>
