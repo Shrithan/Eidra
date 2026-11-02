@@ -28,9 +28,12 @@ export function setOrbits(radii: number[], home = -1) {
 export const outerOrbit = () => ORBITS.reduce((m, o) => Math.max(m, o), 0)
 const visOf = (_i: number) => VIS
 /** Where a planet is at a given time (they circle the sun on slightly different tilts, slowly). */
+/** How far each planet has been dragged along its orbit; it keeps circling from there at its usual speed. */
+const PHASE: number[] = []
+const baseAngle = (i: number, t: number) => i * 0.93 + t * (0.022 / (1 + i * 0.32))
 export function planetPos(i: number, t: number, out: THREE.Vector3) {
   const a = orbitOf(i)
-  const th = i * 0.93 + t * (0.022 / (1 + i * 0.32))
+  const th = baseAngle(i, t) + (PHASE[i] ?? 0)
   return out.set(Math.cos(th) * a, Math.sin(th * 1.0 + i) * a * 0.025, Math.sin(th) * a)
 }
 
@@ -129,11 +132,21 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
   const C = useRef({ oy: 0.8, op: 0.62, od: sysOd, tgt: new V(), mode: 'free' as 'free' | 'fly' | 'out', idx: -1, t0: 0, landed: false })
   const tmp = useMemo(() => ({ p: new V(), q: new V(), cam: new V() }), [])
   const geos = useMemo(() => planets.map(miniPlanet), [planets])
-  // the four biggest planets wear rings, every one tilted its own way
+  // Battlefront and Realm of Quests wear rings, tilted differently and sized to stay clear of the neighbouring orbits
   const ringed = useMemo(() => {
-    const tilts: [number, number, number][] = [[0.42, 0.3, 0.2], [1.05, -0.5, 0.35], [0.2, 1.2, -0.8], [0.78, 2.1, 0.6]]
-    const big = planets.map((p, i) => ({ i, R: p.layout.R, home: p.theme.id === 'home' })).filter((x) => !x.home).sort((a, b) => b.R - a.R).slice(0, 4)
-    return new Map(big.map((x, n) => [x.i, tilts[n]]))
+    const tilts: Record<string, [number, number, number]> = { shooter: [0.5, 0.4, 0.25], rpg: [1.0, -0.9, -0.35] }
+    const map = new Map<number, { tilt: [number, number, number]; scale: number }>()
+    planets.forEach((p, i) => {
+      const tilt = tilts[p.theme.id]
+      if (!tilt) return
+      const mine = orbitOf(i)
+      const gaps = planets.map((_, j) => j).filter((j) => j !== i && planets[j].theme.id !== 'home').map((j) => Math.abs(orbitOf(j) - mine))
+      const half = Math.min(...gaps, Infinity) / 2
+      // the outer edge (2.4 planet radii at full size) must stay inside half the gap to the nearest orbit
+      const room = (half * 0.8) / (p.layout.R * VIS) // the outer edge, in planet radii, that fits
+      map.set(i, { tilt, scale: Math.min(1, Math.max(0.25, (room - 1.3) / 1.1)) })
+    })
+    return map
   }, [planets])
   const glow = useMemo(sunGlow, [])
   const rings = useMemo(() => planets.map((_, i) => {
@@ -149,6 +162,39 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     }
     return a
   }, [])
+
+  // drag a planet along its orbit with the mouse; let go and it carries on circling from where you left it
+  const dragged = useRef<{ i: number; sx: number; sy: number; moved: boolean } | null>(null)
+  const clockT = useRef(0)
+  const movedRecently = useRef(false) // the click that ends a drag must not also fly you to the planet
+  useEffect(() => {
+    const canvas = gl.domElement
+    const ray = new THREE.Raycaster(), plane = new THREE.Plane(new V(0, 1, 0), 0), hit = new V()
+    const move = (e: PointerEvent) => {
+      const d = dragged.current
+      if (!d) return
+      if (!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true
+      if (!d.moved) return
+      const r = canvas.getBoundingClientRect()
+      ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1)), camera)
+      if (!ray.ray.intersectPlane(plane, hit)) return
+      // the planet slides to the angle of the mouse around the sun, whatever distance the mouse is at
+      const target = Math.atan2(hit.z, hit.x)
+      let off = target - baseAngle(d.i, clockT.current)
+      off = ((off + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI
+      PHASE[d.i] = off
+      document.body.style.cursor = 'grabbing'
+    }
+    const up = () => {
+      const d = dragged.current
+      dragged.current = null
+      if (d?.moved) { movedRecently.current = true; window.setTimeout(() => { movedRecently.current = false }, 120) }
+      if (d) window.setTimeout(() => { document.body.style.cursor = 'auto' }, 0)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+  }, [gl, camera])
 
   // the camera for this scene sees very far
   useEffect(() => {
@@ -178,7 +224,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
     const pd = () => { drag = true }
     const pu = () => { drag = false }
     const pm = (e: PointerEvent) => {
-      if (!drag || !e.buttons || C.current.mode !== 'free') return
+      if (!drag || !e.buttons || C.current.mode !== 'free' || dragged.current) return
       C.current.oy -= e.movementX * 0.005
       C.current.op = THREE.MathUtils.clamp(C.current.op + e.movementY * 0.005, -1.4, 1.4)
     }
@@ -202,6 +248,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
   useFrame((state, dtRaw) => {
     const dt = Math.min(dtRaw, 0.1)
     const t = state.clock.elapsedTime + 1000
+    clockT.current = t
     const c = C.current
     planets.forEach((p, i) => {
       const g = planetRefs.current[i]
@@ -277,7 +324,8 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
             <group ref={(el) => { spinRefs.current[i] = el }}>
               <mesh
                 geometry={geos[i]}
-                onClick={(e) => { e.stopPropagation(); cb.current.onPick(i) }}
+                onPointerDown={(e) => { e.stopPropagation(); dragged.current = { i, sx: e.nativeEvent.clientX, sy: e.nativeEvent.clientY, moved: false } }}
+                onClick={(e) => { e.stopPropagation(); if (movedRecently.current) return; cb.current.onPick(i) }}
                 onPointerOver={() => { document.body.style.cursor = 'pointer' }}
                 onPointerOut={() => { document.body.style.cursor = 'auto' }}
               >
@@ -288,7 +336,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
               <sphereGeometry args={[p.layout.R * 1.004, 64, 40]} />
               <meshStandardMaterial color={p.theme.water} transparent opacity={0.85} roughness={0.25} />
             </mesh>
-            {ringed.has(i) && <PlanetRings R={p.layout.R} color={p.theme.color} tilt={ringed.get(i)!} />}
+            {ringed.has(i) && <PlanetRings R={p.layout.R} color={p.theme.color} tilt={ringed.get(i)!.tilt} scale={ringed.get(i)!.scale} />}
             <mesh raycast={() => null}>
               <sphereGeometry args={[p.layout.R * 1.12, 48, 32]} />
               <meshBasicMaterial color={p.theme.atmosphere} transparent opacity={0.13} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
@@ -304,7 +352,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
 }
 
 /** Saturn-style rings: a few concentric bands with a gap, tilted so each ringed planet looks different. */
-function PlanetRings({ R, color, tilt }: { R: number; color: string; tilt: [number, number, number] }) {
+function PlanetRings({ R, color, tilt, scale }: { R: number; color: string; tilt: [number, number, number]; scale: number }) {
   const bands = useMemo(() => [
     { a: 1.45, b: 1.62, o: 0.55 }, { a: 1.64, b: 1.95, o: 0.8 }, { a: 2.0, b: 2.15, o: 0.4 }, { a: 2.18, b: 2.4, o: 0.65 },
   ], [])
@@ -313,7 +361,7 @@ function PlanetRings({ R, color, tilt }: { R: number; color: string; tilt: [numb
     <group rotation={tilt}>
       {bands.map((b, k) => (
         <mesh key={k} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
-          <ringGeometry args={[R * b.a, R * b.b, 96]} />
+          <ringGeometry args={[R * (1.3 + (b.a - 1.3) * scale), R * (1.3 + (b.b - 1.3) * scale), 96]} />
           <meshBasicMaterial color={c} transparent opacity={b.o} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
       ))}
