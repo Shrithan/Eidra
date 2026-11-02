@@ -123,15 +123,19 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
   const group = useRef<THREE.Group>(null)
   const planetRefs = useRef<(THREE.Group | null)[]>([])
   const spinRefs = useRef<(THREE.Group | null)[]>([])
-  const moonRefs = useRef<(THREE.Mesh | null)[]>([])
   const labelRefs = useRef<(THREE.Sprite | null)[]>([])
   const cb = useRef({ onPick, onLand, onPickStream, onPickIsland, onLandIsland })
   cb.current = { onPick, onLand, onPickStream, onPickIsland, onLandIsland }
   const C = useRef({ oy: 0.8, op: 0.62, od: sysOd, tgt: new V(), mode: 'free' as 'free' | 'fly' | 'out', idx: -1, t0: 0, landed: false })
   const tmp = useMemo(() => ({ p: new V(), q: new V(), cam: new V() }), [])
   const geos = useMemo(() => planets.map(miniPlanet), [planets])
+  // the four biggest planets wear rings, every one tilted its own way
+  const ringed = useMemo(() => {
+    const tilts: [number, number, number][] = [[0.42, 0.3, 0.2], [1.05, -0.5, 0.35], [0.2, 1.2, -0.8], [0.78, 2.1, 0.6]]
+    const big = planets.map((p, i) => ({ i, R: p.layout.R, home: p.theme.id === 'home' })).filter((x) => !x.home).sort((a, b) => b.R - a.R).slice(0, 4)
+    return new Map(big.map((x, n) => [x.i, tilts[n]]))
+  }, [planets])
   const glow = useMemo(sunGlow, [])
-  const moonGeo = useMemo(() => new THREE.IcosahedronGeometry(1, 1), [])
   const rings = useMemo(() => planets.map((_, i) => {
     const pts: THREE.Vector3[] = []
     for (let k = 0; k <= 200; k++) { const th = (k / 200) * Math.PI * 2; pts.push(new V(Math.cos(th) * orbitOf(i), 0, Math.sin(th) * orbitOf(i))) }
@@ -206,17 +210,6 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
       const spin = spinRefs.current[i]
       if (spin) spin.rotation.y = t * 0.05 * (i % 2 ? 1 : -1)
     })
-    // a few moons
-    moonRefs.current.forEach((m, k) => {
-      if (!m) return
-      const pi = [0, 3, 5][k]
-      const R = planets[pi].layout.R
-      const a = t * (0.12 + k * 0.03)
-      const host = planetRefs.current[pi]!.position
-      m.position.set(host.x + Math.cos(a) * R * VIS * 2.4, host.y + Math.sin(a * 0.7) * R * VIS * 0.5, host.z + Math.sin(a) * R * VIS * 2.4)
-      m.scale.setScalar(R * VIS * 0.22)
-    })
-
     // camera
     if (c.mode === 'out') {
       // we just left a planet: slide the view back out to the whole system
@@ -295,6 +288,7 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
               <sphereGeometry args={[p.layout.R * 1.004, 64, 40]} />
               <meshStandardMaterial color={p.theme.water} transparent opacity={0.85} roughness={0.25} />
             </mesh>
+            {ringed.has(i) && <PlanetRings R={p.layout.R} color={p.theme.color} tilt={ringed.get(i)!} />}
             <mesh raycast={() => null}>
               <sphereGeometry args={[p.layout.R * 1.12, 48, 32]} />
               <meshBasicMaterial color={p.theme.atmosphere} transparent opacity={0.13} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.BackSide} />
@@ -305,10 +299,22 @@ export function SystemScene({ planets, from, fly, onPick, onLand, onPickStream, 
           </sprite>
         </group>
       ))}
+    </group>
+  )
+}
 
-      {[0, 3, 5].map((_, k) => (
-        <mesh key={k} ref={(el) => { moonRefs.current[k] = el }} geometry={moonGeo} raycast={() => null}>
-          <meshStandardMaterial color="#b9bcc6" flatShading roughness={1} />
+/** Saturn-style rings: a few concentric bands with a gap, tilted so each ringed planet looks different. */
+function PlanetRings({ R, color, tilt }: { R: number; color: string; tilt: [number, number, number] }) {
+  const bands = useMemo(() => [
+    { a: 1.45, b: 1.62, o: 0.55 }, { a: 1.64, b: 1.95, o: 0.8 }, { a: 2.0, b: 2.15, o: 0.4 }, { a: 2.18, b: 2.4, o: 0.65 },
+  ], [])
+  const c = useMemo(() => new THREE.Color(color).lerp(new THREE.Color('#ffffff'), 0.45), [color])
+  return (
+    <group rotation={tilt}>
+      {bands.map((b, k) => (
+        <mesh key={k} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
+          <ringGeometry args={[R * b.a, R * b.b, 96]} />
+          <meshBasicMaterial color={c} transparent opacity={b.o} side={THREE.DoubleSide} depthWrite={false} />
         </mesh>
       ))}
     </group>

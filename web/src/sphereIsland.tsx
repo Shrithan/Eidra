@@ -10,7 +10,9 @@ import { GROUPS, groupIndex } from './sphereLayout'
 import { bubbleTexture, nameTexture, type WorldPeople, type Resident } from './sphereResidents'
 
 const V = THREE.Vector3
-export const ISLAND_R = 560
+export const ISLAND_R = 680
+/** Everything on the island was laid out for a 560 m radius; this scales those positions up to the current size. */
+const F = ISLAND_R / 560
 const FONT = "'Fredoka', ui-rounded, system-ui, sans-serif"
 
 const rand = (seed: number) => { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
@@ -131,7 +133,7 @@ async function buildWorld(elite: Stream[], solids: Solid[], anim: { train: THREE
     const l = new THREE.Mesh(new THREE.RingGeometry(r - 0.3, r + 0.3, 96), paint)
     l.rotation.x = -Math.PI / 2; l.position.y = 0.14; world.add(l)
   }
-  ringRoad(150, 14); ringRoad(262, 14); ringRoad(380, 14)
+  ringRoad(150 * F, 14); ringRoad(262 * F, 14); ringRoad(380 * F, 14)
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + Math.PI / 8
     const holder = new THREE.Group()
@@ -165,7 +167,7 @@ async function buildWorld(elite: Stream[], solids: Solid[], anim: { train: THREE
   // ---- the monorail: a loop of track round the second ring, with a train that never stops ----
   const track = await placePiece('monorail_trackStraight', 3)
   const segLen = Math.max(track.size.z, track.size.x)
-  const trackR = 206
+  const trackR = 206 * F
   const segs = Math.round((Math.PI * 2 * trackR) / segLen)
   for (let i = 0; i < segs; i++) {
     const a = (i / segs) * Math.PI * 2
@@ -187,7 +189,7 @@ async function buildWorld(elite: Stream[], solids: Solid[], anim: { train: THREE
   }
 
   // ---- the streamers: one colony building each, nearest the plaza for the biggest audiences ----
-  const rings = [{ r: 125, n: 8 }, { r: 200, n: 14 }, { r: 322, n: 24 }, { r: 440, n: 28 }]
+  const rings = [{ r: 125 * F, n: 8 }, { r: 200 * F, n: 14 }, { r: 322 * F, n: 24 }, { r: 440 * F, n: 28 }]
   const slots: { x: number; z: number; a: number }[] = []
   for (const ring of rings) for (let i = 0; i < ring.n; i++) { const a = (i / ring.n) * Math.PI * 2 + ring.r * 0.011; slots.push({ x: Math.cos(a) * ring.r, z: Math.sin(a) * ring.r, a }) }
   const sorted = [...elite].sort((a, b) => b.viewers - a.viewers).slice(0, slots.length)
@@ -222,7 +224,7 @@ async function buildWorld(elite: Stream[], solids: Solid[], anim: { train: THREE
     const k = 20
     const obj = p.obj.clone(true)
     obj.scale.setScalar(k)
-    const rr = 462
+    const rr = 462 * F
     add(obj, Math.cos(a) * rr, Math.sin(a) * rr, -p.size.y * 0 - 3.6, a * -1 + 1.2)
     solids.push({ x: Math.cos(a) * rr, z: Math.sin(a) * rr, r: Math.max(p.size.x, p.size.z) * k * 0.2 })
   })
@@ -230,7 +232,7 @@ async function buildWorld(elite: Stream[], solids: Solid[], anim: { train: THREE
   // ---- Kenney Space Kit scenery ----
   const scatter = async (name: string, count: number, rMin: number, rMax: number, k: number, solid = 0, seed = 1) => {
     for (let i = 0; i < count; i++) {
-      const a = rand(seed + i * 3) * Math.PI * 2, r = rMin + rand(seed + i * 5 + 1) * (rMax - rMin)
+      const a = rand(seed + i * 3) * Math.PI * 2, r = (rMin + rand(seed + i * 5 + 1) * (rMax - rMin)) * F
       const x = Math.cos(a) * r, z = Math.sin(a) * r
       if (solids.some((s) => Math.hypot(s.x - x, s.z - z) < s.r + 12 + solid)) continue
       const p = await placePiece(name, k * (0.8 + rand(seed + i) * 0.5))
@@ -531,7 +533,7 @@ export function IslandScene({ people, elite, onNear, onEnter, onExit, onMode, ap
       const d = camera.position.distanceTo(l.at)
       const mat = l.s.material as THREE.SpriteMaterial
       const far = d > 460
-      mat.opacity = far ? (i < 14 ? 0.95 : 0) : THREE.MathUtils.clamp((460 - d) / 120, 0, 1)
+      mat.opacity = far ? 0.95 : THREE.MathUtils.clamp((460 - d) / 120, 0, 1)
       const grow = far ? THREE.MathUtils.clamp(d / 320, 1, 5.5) : 1
       l.s.scale.set(30 * grow, 9.4 * grow, 1)
     })
@@ -543,9 +545,6 @@ export function IslandScene({ people, elite, onNear, onEnter, onExit, onMode, ap
       <directionalLight position={[300, 420, 200]} intensity={2.6} color="#ffe6c8" />
       <ambientLight intensity={0.35} />
       <points geometry={starGeo}><pointsMaterial vertexColors size={2.2} sizeAttenuation={false} fog={false} /></points>
-      {/* distant worlds, for the view from the edge */}
-      <mesh position={[-4200, 1500, -5200]}><sphereGeometry args={[900, 32, 20]} /><meshStandardMaterial color="#d99a6c" flatShading emissive="#3a2010" /></mesh>
-      <mesh position={[5200, 2600, -3800]}><sphereGeometry args={[520, 28, 18]} /><meshStandardMaterial color="#6f8fe0" flatShading emissive="#101c44" /></mesh>
       <mesh geometry={geo}><meshStandardMaterial vertexColors flatShading roughness={0.95} side={THREE.DoubleSide} /></mesh>
       {world && <primitive object={world} />}
       <group ref={avatar} visible={false}><BlockyCharacter key={`${appearance.skin}:${appearance.top}:${appearance.bottom}:${appearance.face}:${appearance.hat}:${appearance.chain}`} motion={motion} appearance={appearance} /><IslandBubble world={people} id="me" /></group>
