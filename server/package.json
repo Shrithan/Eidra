@@ -1,0 +1,39 @@
+{
+  "name": "watchworld-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/e2e.ts",
+    "test:twitch": "tsx scripts/verify-twitch.ts",
+    "build": "tsc -p tsconfig.build.json && mkdir -p dist/data && cp src/data/cities.json dist/data/cities.json",
+    "test:e2e": "tsx scripts/e2e.ts",
+    "test:persistence": "tsx scripts/verify-persistence.ts",
+    "test:audience": "tsx scripts/verify-audience.ts",
+    "test:catalog": "tsx scripts/verify-catalog.ts",
+    "test:research": "tsx scripts/verify-research.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "~0.16.0",
+    "@colyseus/schema": "^3.0.0",
+    "@colyseus/ws-transport": "~0.16.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "world-countries": "^5.1.0",
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "colyseus.js": "~0.16.22",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "watchworld-station-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "pretest": "node ../../node_modules/typescript/bin/tsc -p ../../../shared/stations/world3d/tsconfig.json"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "vitest": "^3.2.0"
+  }
+}
