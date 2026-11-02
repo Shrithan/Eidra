@@ -99,20 +99,71 @@ Log in with Twitch to earn credits from quests: time in theatres, social goals, 
 
 ## 🖼 Screens
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screens/solar-system.jpg" alt="The solar system"/><br/><sub><b>The solar system</b>: drag planets along their orbits.</sub></td>
-<td width="50%"><img src="docs/screens/planet.jpg" alt="A genre planet from orbit"/><br/><sub><b>A genre planet</b>: countries are games, buildings are streamers.</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/screens/street.jpg" alt="Street level on a planet"/><br/><sub><b>Street level</b>: walk up to any building and step inside.</sub></td>
-<td width="50%"><img src="docs/screens/central-island.jpg" alt="The central island"/><br/><sub><b>The central island</b>: every 3,000+ viewer channel, by name.</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/screens/theatre.jpg" alt="Inside a theatre"/><br/><sub><b>Theatres</b>: a shared room around the live stream.</sub></td>
-<td width="50%"><img src="docs/screens/character.jpg" alt="The character studio"/><br/><sub><b>Character studio</b>: outfits, hats and necklaces.</sub></td>
-</tr>
-</table>
+<div align="center">
+
+<img src="docs/screens/solar-system.jpg" alt="The solar system" width="100%"/>
+
+**The solar system**<br/>
+<sub>Zoom out to see every orbit, drag planets around, and spot the ringed worlds.</sub>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+<img src="docs/screens/planet.jpg" alt="A genre planet" width="100%"/>
+
+**A genre planet**<br/>
+<sub>Every game is a country, every live streamer a building. Click the ground to fly down.</sub>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+<img src="docs/screens/street.jpg" alt="Street level" width="100%"/>
+
+**Street level**<br/>
+<sub>Walk up to any building to see its stream and step inside.</sub>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+<img src="docs/screens/central-island.jpg" alt="The central island" width="100%"/>
+
+**The central island**<br/>
+<sub>Every channel with 3,000+ viewers, by name, around the plaza.</sub>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+<img src="docs/screens/theatre.jpg" alt="Theatres" width="100%"/>
+
+**Theatres**<br/>
+<sub>A shared room around the live stream, with seats, emotes and chat.</sub>
+
+</div>
+
+<br/>
+
+<div align="center">
+
+<img src="docs/screens/character.jpg" alt="Character studio" width="100%"/>
+
+**Character studio**<br/>
+<sub>Earn credits, then unlock outfits, hats and necklaces that everyone else sees.</sub>
+
+</div>
+
+<br/>
 
 <img src="docs/divider.svg" alt="" width="100%"/>
 
