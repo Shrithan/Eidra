@@ -10,8 +10,7 @@ import { SystemScene } from './sphereSystem'
 import { buildRoadNet } from './sphereCity'
 import { Atmosphere, Props, Railways, Roads, SkyDome, Water, Waterfalls, hashStr, makeGroundMaterial } from './sphereVisuals'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { CUBE, loadGLTF } from './sphereModels'
+import BlockyCharacter from './BlockyCharacter'
 import { Animals, Nature } from './sphereNature'
 import { Boats, ModelHouses } from './sphereCityModels'
 import { Highways } from './sphereHighways'
@@ -109,7 +108,7 @@ export default function WatchSphere({ selected, onSelect, onEnter, name }: Props
     if (view.kind === 'system') setView({ kind: 'system', from: null, fly: i })
     else if (view.index !== i) {
       setWarp(planets[i].theme.name)
-      setView({ kind: 'planet', index: i, entry: null })
+      setView({ kind: 'planet', index: i, entry: new V(0.3, 0.5, 1).normalize() })
       setTimeout(() => setWarp(null), 900)
     }
   }
@@ -179,7 +178,7 @@ export default function WatchSphere({ selected, onSelect, onEnter, name }: Props
               <b>{near.stream.displayName}</b>
               <span>{near.category} · {near.stream.viewers.toLocaleString()} watching</span>
               <span className="tier">Tier {near.tier + 1} · {TIERS[near.tier].name}</span>
-              <em>Press E to go in</em>
+              <em>Walk into the building to enter</em>
             </div>
           )}
           {view.kind === 'planet' && <WorldChat world={people} inputRef={chatInput} name={myName} />}
@@ -456,9 +455,44 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
     const dir = entry ?? new V(0.3, 0.5, 1).normalize()
     s.oy = Math.atan2(dir.x, dir.z)
     s.op = Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1))
-    camera.position.copy(dir).multiplyScalar(R * 2.6)
-    camera.lookAt(0, 0, 0)
-    callbacks.current.onMode('orbit')
+    if (entry) {
+      const spawn = dir.clone().normalize()
+      let facing: THREE.Vector3 | null = null
+      if (layout.ground(spawn) <= 0.2) {
+        if (layout.plots.length) {
+          const plot = layout.plots.reduce((best, p) => p.dir.distanceToSquared(spawn) < best.dir.distanceToSquared(spawn) ? p : best)
+          const door = frontDir(plot)
+          spawn.copy(plot.dir).multiplyScalar(R).addScaledVector(door, plot.footprint * 0.5 + 12).normalize()
+          facing = door.negate()
+        } else {
+          // Empty demo planets still need a dry place to land.
+          let highest = -Infinity
+          const golden = Math.PI * (3 - Math.sqrt(5))
+          for (let i = 0; i < 256; i++) {
+            const y = 1 - (2 * (i + 0.5)) / 256
+            const radius = Math.sqrt(1 - y * y)
+            const sample = new V(Math.cos(i * golden) * radius, y, Math.sin(i * golden) * radius)
+            const elevation = layout.ground(sample)
+            if (elevation > highest) { highest = elevation; spawn.copy(sample) }
+          }
+        }
+      }
+      s.P.copy(spawn)
+      s.F.copy(facing ?? new V(0, 0, -1).addScaledVector(spawn, spawn.z))
+      if (s.F.lengthSq() < 1e-4) s.F.set(1, 0, 0).addScaledVector(spawn, -spawn.x)
+      s.F.normalize()
+      s.vel.set(0, 0, 0); s.alt = 0; s.vy = 0; s.mode = 'walk'
+      const surface = R + layout.ground(spawn)
+      camera.position.copy(spawn).multiplyScalar(surface + 12)
+      camera.up.copy(spawn)
+      camera.lookAt(spawn.clone().multiplyScalar(surface))
+      callbacks.current.onMode('walk')
+    } else {
+      s.mode = 'orbit'
+      camera.position.copy(dir).multiplyScalar(R * 2.6)
+      camera.lookAt(0, 0, 0)
+      callbacks.current.onMode('orbit')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // the further out the camera is, the further it keeps its near plane, so surfaces that sit close together stay apart in the depth buffer
@@ -538,7 +572,6 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
       if (e.repeat) return
       if (k === ' ') s.jumpBuf = 0.15
       if (k === 'o') goOrbit()
-      if (k === 'e' && s.mode === 'walk' && s.nearIdx >= 0) callbacks.current.onEnter(layout.plots[s.nearIdx].stream)
     }
     const up = (e: KeyboardEvent) => { s.keys[e.key.toLowerCase()] = false }
     const blur = () => { s.keys = {} }
@@ -592,11 +625,13 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
     }
   }, [gl, layout])
 
-  /** Push a point on the ground out of any building it has walked into (buildings are circles seen from above). */
+  /** Walk into a stream building to enter it; keep the player outside buildings while airborne. */
   const resolve = (P: THREE.Vector3, alt: number) => {
     t.pw.copy(P).multiplyScalar(R)
+    let entered = false
     for (let pass = 0; pass < 2; pass++) {
       grid.near(t.pw, (i) => {
+        if (entered) return
         const pl = layout.plots[i]
         if (alt > pl.height - 0.2) return
         t.a.copy(pl.dir).multiplyScalar(R)
@@ -604,12 +639,19 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
         const rad = pl.footprint * 0.62 + 0.5
         const d = t.b.length()
         if (d < rad) {
+          if (alt < 2.2) {
+            entered = true
+            callbacks.current.onEnter(pl.stream)
+            return
+          }
           if (d < 1e-4) t.b.crossVectors(pl.dir, Y)
-          t.pw.copy(t.a).addScaledVector(t.b.normalize(), rad)
+          if (!entered) t.pw.copy(t.a).addScaledVector(t.b.normalize(), rad)
         }
       })
+      if (entered) return true
     }
     P.copy(t.pw).normalize()
+    return false
   }
 
   useFrame((state, dtRaw) => {
@@ -682,7 +724,7 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
         t.b.crossVectors(s.P, t.a).normalize()
         t.q.setFromAxisAngle(t.b, (speed * dt) / (R + s.alt))
         t.c.copy(s.P).applyQuaternion(t.q) // where we would end up
-        resolve(t.c, s.alt)
+        if (resolve(t.c, s.alt)) return
         if (layout.ground(t.c) < 0.2) { t.c.copy(s.P); s.vel.multiplyScalar(0.2) } // lakes block the way
         t.q2.setFromUnitVectors(s.P, t.c) // carry our heading and velocity along with us
         s.F.applyQuaternion(t.q2)
@@ -781,42 +823,7 @@ function Scene({ layout, focus, entry, selected, onSelect, onEnter, onMode, onNe
   )
 }
 
-/** You: an animated blocky grown man (Kenney) who idles, walks, runs and jumps with what the controller is doing. */
+/** You: the shared animated blocky character used inside theatres as well. */
 function PlayerCharacter({ S }: { S: React.MutableRefObject<{ alt: number; vel: THREE.Vector3 }> }) {
-  const [rig, setRig] = useState<{ root: THREE.Object3D; mixer: THREE.AnimationMixer; actions: Record<string, THREE.AnimationAction> } | null>(null)
-  const current = useRef('idle')
-  useEffect(() => {
-    let live = true
-    loadGLTF('/models/blocky/character-b.glb').then((g) => {
-      if (!live) return
-      const root = SkeletonUtils.clone(g.scene)
-      const h = new THREE.Box3().setFromObject(g.scene).getSize(new THREE.Vector3()).y
-      root.scale.setScalar(1.85 / Math.max(0.01, h))
-      root.rotation.y = Math.PI // the model faces +Z; the player group faces -Z
-      root.traverse((o) => { o.frustumCulled = false })
-      const mixer = new THREE.AnimationMixer(root)
-      const actions: Record<string, THREE.AnimationAction> = {}
-      for (const clip of g.animations) actions[clip.name] = mixer.clipAction(clip)
-      actions.idle?.play()
-      setRig({ root, mixer, actions })
-    })
-    return () => { live = false }
-  }, [])
-  useFrame((_, dtRaw) => {
-    if (!rig) return
-    const dt = Math.min(dtRaw, 0.1)
-    const s = S.current
-    const speed = s.vel.length()
-    const want = s.alt > 0.15 ? 'sprint' : speed > 13 ? 'sprint' : speed > 0.6 ? 'walk' : 'idle'
-    if (want !== current.current && rig.actions[want]) {
-      const from = rig.actions[current.current], to = rig.actions[want]
-      to.reset().play()
-      if (from) from.crossFadeTo(to, 0.2, false)
-      current.current = want
-    }
-    const a = rig.actions[current.current]
-    if (a) a.timeScale = want === 'walk' ? THREE.MathUtils.clamp(speed / 5, 0.6, 1.4) : 1
-    rig.mixer.update(dt)
-  })
-  return rig ? <primitive object={rig.root} /> : null
+  return <BlockyCharacter motion={S} />
 }

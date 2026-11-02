@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import * as Cesium from 'cesium'
+import * as THREE from 'three'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import './geo.css'
 import type { Stream } from './api'
 import { capacityFor } from './World'
+import { BLOCKY_CHARACTER_URL } from './BlockyCharacter'
+import { loadGLTF } from './sphereModels'
 
 // Cesium loads workers and widget assets from here; web/scripts/copy-cesium.mjs fills it.
 ;(window as any).CESIUM_BASE_URL = '/cesium'
@@ -114,8 +117,13 @@ export default function GeoWorld({ streams, selected, onSelect, onEnter }: Props
       show: false,
       position: new Cesium.CallbackPositionProperty((_t, result) => Cesium.Cartesian3.clone(avatarPos.current, result), false),
       orientation: new Cesium.CallbackProperty(() => avatarRot.current, false) as unknown as Cesium.Property,
-      ellipsoid: { radii: new Cesium.Cartesian3(0.4, 0.4, 0.9), material: Cesium.Color.fromCssColorString('#4d96ff') },
+      model: { uri: BLOCKY_CHARACTER_URL, scale: 1, runAnimations: false },
     })
+    void loadGLTF(BLOCKY_CHARACTER_URL).then((gltf) => {
+      if (destroyed || !avatarRef.current?.model) return
+      const height = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3()).y
+      if (height > 0) avatarRef.current.model.scale = new Cesium.ConstantProperty(1.85 / height)
+    }).catch((error) => console.warn('[geo] could not size the shared character model', error))
 
     // click a pin or a building to select it
     const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas)
@@ -167,6 +175,7 @@ export default function GeoWorld({ streams, selected, onSelect, onEnter }: Props
       const now = performance.now()
       const dt = Math.min(0.1, (now - w.t) / 1000)
       w.t = now
+      const previousDoorPos = Cesium.Matrix4.multiplyByPoint(w.doorInv, w.pos, new Cesium.Cartesian3())
       const k = keys.current
       const f = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0)
       const s = (k['d'] ? 1 : 0) - (k['a'] ? 1 : 0)
@@ -189,18 +198,29 @@ export default function GeoWorld({ streams, selected, onSelect, onEnter }: Props
           w.wallAhead = !!hit && Cesium.Cartesian3.distance(chest, hit) < 0.9 + sp
           w.probeAt = now
         }
-        if (!(tilesOn.current && w.wallAhead)) {
-          w.pos = groundOf(Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(dx, dy, 0), new Cesium.Cartesian3()), w)
+        const nextPos = groundOf(Cesium.Matrix4.multiplyByPoint(enu, new Cesium.Cartesian3(dx, dy, 0), new Cesium.Cartesian3()), w)
+        const nextDoorPos = Cesium.Matrix4.multiplyByPoint(w.doorInv, nextPos, new Cesium.Cartesian3())
+        const target = selectedRef.current
+        if (target?.location) {
+          const { w, d } = buildingSize(target.viewers)
+          const halfW = w / 2 + 0.6
+          const halfD = d / 2 + 0.6
+          const wasInside = Math.abs(previousDoorPos.x) < halfW && Math.abs(previousDoorPos.y) < halfD
+          const isInside = Math.abs(nextDoorPos.x) < halfW && Math.abs(nextDoorPos.y) < halfD
+          if (!wasInside && isInside) {
+            onEnterRef.current(target)
+            return
+          }
         }
+        if (!(tilesOn.current && w.wallAhead)) w.pos = nextPos
         w.body = Math.atan2(dx, dy)
       } else {
         w.wallAhead = false
         w.pos = groundOf(w.pos, w) // keep standing on the street even when the tiles refine under us
       }
+      Cesium.Cartesian3.clone(w.pos, avatarPos.current)
+      Cesium.Transforms.headingPitchRollQuaternion(w.pos, new Cesium.HeadingPitchRoll(w.body, 0, 0), undefined, undefined, avatarRot.current)
       const up = Cesium.Cartesian3.normalize(w.pos, new Cesium.Cartesian3())
-      const bodyPos = Cesium.Cartesian3.add(w.pos, Cesium.Cartesian3.multiplyByScalar(up, 0.9, new Cesium.Cartesian3()), new Cesium.Cartesian3())
-      Cesium.Cartesian3.clone(bodyPos, avatarPos.current)
-      Cesium.Transforms.headingPitchRollQuaternion(bodyPos, new Cesium.HeadingPitchRoll(w.body, 0, 0), undefined, undefined, avatarRot.current)
       const head = Cesium.Cartesian3.add(w.pos, Cesium.Cartesian3.multiplyByScalar(up, 1.7, new Cesium.Cartesian3()), new Cesium.Cartesian3())
       if (tilesOn.current && now - w.probeAt > 40) {
         // keep the camera out of buildings: shorten the follow distance when something is between us and it
@@ -245,7 +265,6 @@ export default function GeoWorld({ streams, selected, onSelect, onEnter }: Props
       const key = e.key.toLowerCase()
       if (key.startsWith('arrow') || key === ' ') e.preventDefault()
       keys.current[key] = true
-      if (key === 'e' && nearRef.current && selectedRef.current) onEnterRef.current(selectedRef.current)
       if (key === 'o') goOrbit()
     }
     const up = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false }
@@ -476,7 +495,7 @@ export default function GeoWorld({ streams, selected, onSelect, onEnter }: Props
         {mode === 'walk' && (
           <span>
             <b>WASD</b> walk · <b>Shift</b> run · <b>drag</b> to look · <b>O</b> back to orbit
-            {near ? <> · <b className="geo-enter">Press E to enter the theatre</b></> : ' · walk up to the door to go in'}
+            {near ? <> · <b className="geo-enter">Walk into the theatre to enter</b></> : ' · walk up to the theatre to go in'}
           </span>
         )}
         {mode !== 'orbit' && <button onClick={() => (viewerRef.current as any)?.__goOrbit?.()}>Back to orbit</button>}

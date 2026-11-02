@@ -79,6 +79,9 @@ RoomState { players: MapSchema<Player>; channel: string; viewerCount: number }
 | `emote` | `{ playerId, emoji }` |
 | `room_chat` | `{ playerId, name, text }` |
 | `twitch_chat` | `{ user, text, color? }` (live chat from the streamer's channel via EventSub) |
+| `twitch_update` | `{ category, title, detail }` (channel chat notifications, channel metadata changes, and stream start/end updates) |
+
+The in-game phone has an Updates feed and a Chat tab. Its chat view mirrors room and Twitch chat and sends through the existing `chat` message. Twitch updates are sent while a viewer is in the theatre: `channel.chat.notification` uses the existing `user:read:chat` scope; `channel.update`, `stream.online` and `stream.offline` report public channel changes. Follow alerts are not included because Twitch requires moderator follower-read permission.
 
 Rate-limit `chat` and `emote` per player (suggest 1 chat per 2s, 5 emotes per 5s).
 

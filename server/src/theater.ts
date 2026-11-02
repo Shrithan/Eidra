@@ -93,7 +93,11 @@ export class Theater extends Room<RoomState> {
     p.color=['#a78bfa','#38bdf8','#fb7185','#34d399'][this.state.players.size%4];
     this.state.players.set(client.sessionId,p); this.state.viewerCount=this.state.players.size;
     this.limits.set(client.sessionId,{chat:0,emotes:[],moves:[],moved:performance.now(),wave:0});
-    if(identity) this.subscriptions.set(client.sessionId,services.subscribe(this.state.channel,identity,payload=>this.broadcast('twitch_chat',payload)));
+    if(identity) this.subscriptions.set(client.sessionId,services.subscribe(this.state.channel,identity,payload=>{
+      const event=payload as {type?:string;user?:string;text?:string;color?:string;category?:string;title?:string;detail?:string};
+      if(event?.type==='chat'&&typeof event.user==='string'&&typeof event.text==='string')this.broadcast('twitch_chat',{user:event.user,text:event.text,...(event.color?{color:event.color}:{})});
+    }));
+    if(identity) client.send('twitch_update',{category:'account',title:'Twitch account connected',detail:`Signed in as ${identity.displayName}. Your phone now controls this theatre's audio.`});
   }
   onLeave(client:Client) {
     this.state.players.delete(client.sessionId); this.state.viewerCount=this.state.players.size;

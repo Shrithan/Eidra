@@ -413,6 +413,7 @@ export function Traffic({ net, layout }: { net: RoadNet; layout: SphereLayout })
   ], [])
   const sim = useMemo(() => {
     const wv = net.verts.map((v) => v.clone().multiplyScalar(R + layout.ground(v)))
+    if (!net.edges.length) return { wv, cars: kinds.map(() => [] as Car[]) }
     const cars = kinds.map((k) => Array.from({ length: k.n }, (): Car => {
       const e = net.edges[Math.floor(Math.random() * net.edges.length)]
       const flip = Math.random() < 0.5
@@ -465,6 +466,7 @@ export function Traffic({ net, layout }: { net: RoadNet; layout: SphereLayout })
     })
   })
 
+  if (!net.edges.length) return null
   return (
     <group>
       {kinds.map((k, ki) => (

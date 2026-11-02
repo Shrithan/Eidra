@@ -110,3 +110,72 @@ button { cursor: pointer; }
 .omni-go { font-size: 11px; opacity: .6; flex: none; }
 .omni-empty { padding: 12px; opacity: .7; font-size: 13px; }
 @media (max-width: 900px) { .omni { top: 58px; width: calc(100vw - 32px); } }
+
+.screenlayer iframe.stream-fallback.active { display: block; width: 100%; height: 100%; border: 0; pointer-events: auto; }
+.screenlayer iframe.stream-fallback:not(.active) { display: none!important; }
+
+/* In-game phone */
+.phone-dock { position: absolute; right: 16px; bottom: 62px; z-index: 14; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+.phone-panel { width: 320px; height: min(450px, calc(100dvh - 160px)); min-height: 280px; display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; border: 1px solid #716681; border-radius: 21px; background: #111016f2; box-shadow: 0 14px 50px #000b, inset 0 1px #ffffff14; backdrop-filter: blur(18px); }
+.phone-header { min-height: 62px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #ffffff13; background: linear-gradient(115deg, #21172f, #17131f 66%, #171a25); }
+.phone-app-icon { flex: 0 0 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: linear-gradient(145deg, #b67aff, #7540d7); color: white; font-weight: 800; box-shadow: inset 0 1px #ffffff66; }
+.phone-heading { min-width: 0; display: grid; gap: 2px; }
+.phone-heading b { font-size: 13px; }
+.phone-heading small { color: var(--quiet); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phone-signal { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #62df99; box-shadow: 0 0 10px #62df9977; }
+.phone-close { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 9px; background: #ffffff0d; color: var(--quiet); font-size: 20px; line-height: 1; }
+.phone-close:hover { background: #ffffff1c; color: white; }
+.phone-now-playing { display:flex; align-items:center; gap:10px; padding:11px 13px 9px; border-bottom:1px solid #ffffff10; }
+.phone-live-dot { width:9px; height:9px; border-radius:50%; background:#5b5562; box-shadow:0 0 0 4px #ffffff08; }
+.phone-live-dot.live { background:#ff4f6e; box-shadow:0 0 0 4px #ff4f6e20, 0 0 12px #ff4f6e99; }
+.phone-now-playing div { min-width:0; display:grid; gap:1px; }
+.phone-now-playing small { color:#9f97aa; font-size:9px; font-weight:800; letter-spacing:.08em; }
+.phone-now-playing b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.phone-now-playing span { color:#aaa3b2; font-size:10px; }
+.phone-player-controls { padding:9px 11px 11px; border-bottom:1px solid #ffffff10; }
+.phone-volume-row { display:flex; align-items:center; gap:8px; }
+.phone-volume-row button { width:31px; height:31px; border:0; border-radius:9px; background:#ffffff0c; color:#f0e8ff; font-size:14px; }
+.phone-volume-row input { flex:1; accent-color:#a970ff; }
+.phone-volume-row output { width:31px; color:#aaa3b2; font-size:10px; text-align:right; }
+.phone-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:9px; }
+.phone-actions button,.phone-actions a { min-height:28px; display:grid; place-items:center; padding:4px 5px; border:1px solid #ffffff16; border-radius:8px; background:#ffffff08; color:#dfd3ee; font-size:9px; font-weight:700; text-align:center; text-decoration:none; }
+.phone-actions button:hover,.phone-actions a:hover { border-color:#b98aff; background:#9146ff28; color:#fff; }
+.phone-updates-heading { display:flex; align-items:center; gap:7px; padding:9px 11px 3px; color:#d8cde5; font-size:11px; font-weight:750; }
+.phone-tab-badge, .phone-launch-badge { display: inline-grid; min-width: 18px; height: 18px; place-items: center; padding: 0 5px; border-radius: 999px; background: #ff5374; color: white; font-size: 10px; font-weight: 800; }
+.phone-updates, .phone-chat-log { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.phone-updates { padding: 8px 10px; }
+.phone-update { display: grid; grid-template-columns: 29px minmax(0, 1fr); gap: 9px; padding: 11px 2px; border-bottom: 1px solid #ffffff10; }
+.phone-update-icon { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 10px; background: #9146ff26; color: #d4b8ff; font-size: 15px; }
+.phone-update.stream .phone-update-icon { background: #00c85322; color: #7ee0a4; }
+.phone-update.channel .phone-update-icon { background: #38bdf822; color: #8ddcff; }
+.phone-update.account .phone-update-icon { background:#fbbf2422; color:#f9d67b; }
+.phone-update-copy { min-width: 0; }
+.phone-update-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
+.phone-update-heading b { font-size: 11px; line-height: 1.35; }
+.phone-update-heading time { flex: 0 0 auto; color: #85818e; font-size: 9px; }
+.phone-update-copy p { margin: 4px 0 0; color: #c7c3ce; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.phone-empty { min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px; text-align: center; }
+.phone-empty > span { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 14px; background: #9146ff20; color: #c9a7ff; font-size: 22px; }
+.phone-empty b { font-size: 12px; }
+.phone-empty p, .phone-chat-empty { max-width: 230px; margin: 7px 0 0; color: var(--quiet); font-size: 11px; line-height: 1.5; }
+.phone-chat-log { display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 10px; }
+.phone-line { align-self: flex-start; max-width: 95%; padding: 7px 9px; border: 1px solid #ffffff0c; border-radius: 11px 11px 11px 3px; background: #ffffff09; color: #eeeaf3; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.phone-line.twitch { border-color: #9146ff30; background: #9146ff12; }
+.phone-line.system { align-self: center; max-width: 100%; border: 0; background: transparent; color: var(--quiet); font-size: 10px; text-align: center; }
+.phone-line small { margin-left: 5px; color: #928b9d; font-size: 9px; }
+.phone-chat-empty { align-self: center; margin: auto; text-align: center; }
+.phone-chat-form { flex: 0 0 auto; display: flex; gap: 7px; padding: 9px; border-top: 1px solid #ffffff12; }
+.phone-chat-form input { min-width: 0; flex: 1; border: 1px solid #3a3444; border-radius: 10px; background: #0b0a10; padding: 9px 10px; outline: none; font-size: 11px; }
+.phone-chat-form input:focus { border-color: var(--accent); }
+.phone-chat-form button { width: 36px; flex: 0 0 36px; border: 0; border-radius: 10px; background: var(--accent); color: white; font-size: 16px; }
+.phone-footer { flex: 0 0 auto; padding: 7px 11px 8px; border-top: 1px solid #ffffff0b; color: #817d88; font-size: 9px; text-align: center; }
+.phone-launch { min-height: 42px; display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; border: 1px solid #796694; border-radius: 999px; background: #16121eeF; color: #f6f0ff; font-size: 12px; font-weight: 700; box-shadow: 0 5px 20px #0008; pointer-events: auto; backdrop-filter: blur(10px); }
+.phone-launch:hover, .phone-launch.open { border-color: #bd9bff; background: #261936f2; }
+.phone-launch-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #9146ff35; color: #ddc5ff; font-size: 20px; line-height: 1; }
+.phone-launch-badge { margin-left: 1px; }
+.phone-launch:focus-visible, .phone-tabs button:focus-visible, .phone-close:focus-visible { outline: 2px solid #caaaff; outline-offset: 2px; }
+
+@media (max-width: 800px) {
+  .phone-dock { right: 10px; bottom: 54px; }
+  .phone-panel { width: min(320px, calc(100vw - 24px)); height: min(410px, calc(100dvh - 210px)); min-height: 230px; }
+}

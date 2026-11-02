@@ -43,6 +43,7 @@
 .ww-playback-open .screenlayer > div,.ww-playback-open .screenlayer > div > div { position:absolute!important; inset:0!important; transform:none!important; width:100%!important; height:100%!important; pointer-events:auto!important; }
 .ww-playback-open .screenlayer > div > div > div { width:100%!important; height:100%!important; }
 .ww-playback-open .screenlayer iframe { display:block!important; width:100%!important; height:100%!important; pointer-events:auto!important; border:0!important; }
+.ww-playback-open .screenlayer iframe.stream-fallback:not(.active) { display:none!important; }
 .ww-playback-reopen { position:fixed; z-index:30; left:16px; bottom:16px; font-size:12px; }
 @media(max-height:650px){.ww-playback-dialog{padding:10px}.ww-playback-dialog p{margin:6px 0}.ww-playback-dialog footer{margin-top:6px}.ww-playback-dialog h2{font-size:16px}}
 .ww-playback-open .theatre { position:absolute!important; }
@@ -50,3 +51,9 @@
 .ww-playback-open .screenlayer { perspective:none!important; }
 .ww-playback-open .screenlayer { left:var(--ww-player-left,50%)!important; top:var(--ww-player-top,50%)!important; width:var(--ww-player-width,min(844px,calc(100vw - 68px)))!important; height:var(--ww-player-height,min(50vh,460px))!important; transform:none!important; }
 .ww-playback-open .worldroot .nametag,.ww-playback-open .worldroot .bubble,.ww-playback-open .worldroot .float { visibility:hidden!important; }
+.ww-stream-loading { position:absolute; inset:0; z-index:4; display:grid; place-items:center; color:#fff; background:#080711a6; font-size:16px; font-weight:600; text-shadow:0 2px 8px #000; pointer-events:none; }
+.ww-stream-offline { position:absolute; inset:0; z-index:5; display:grid; place-items:center; color:#fff; background:#0807119c; font-size:22px; font-weight:700; text-shadow:0 2px 8px #000; pointer-events:none; }
+.ww-transition { position:fixed; inset:0; z-index:200; background:#080711; opacity:0; pointer-events:none; transition:opacity 220ms ease; }
+.ww-transition.cover { opacity:1; }
+.ww-transition.reveal { opacity:0; }
+@media(prefers-reduced-motion:reduce){.ww-transition{transition:none}}

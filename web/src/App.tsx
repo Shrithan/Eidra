@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Globe from './Globe'
 import GeoWorld from './GeoWorld'
 import WatchSphere from './WatchSphere'
@@ -20,6 +20,8 @@ export default function App() {
  const [guest]=useState(()=>`Guest${Math.floor(Math.random()*900+100)}`)
  const [listOpen,setListOpen]=useState(false)
  const [visibleRows,setVisibleRows]=useState(80)
+ const [transition,setTransition]=useState<'idle'|'cover'|'reveal'>('idle')
+ const transitionLock=useRef(false)
  useEffect(()=>{const timer=setTimeout(()=>{setSearch(query.trim());setSelected(null);if(query.trim())setListOpen(true);setPage(0);setVisibleRows(80)},250);return()=>clearTimeout(timer)},[query])
  const load=useCallback(async(signal?:AbortSignal)=>{
   const result=await fetchStreams({planet:search||world==='watchworld'?'all':world,q:search,limit:PAGE_SIZE,offset:page*PAGE_SIZE},signal)
@@ -31,10 +33,22 @@ export default function App() {
  useEffect(()=>{void fetchMe().then(setMe)},[])
  const changeWorld=(id:string)=>{setWorld(id);setPage(0);setVisibleRows(80);setSelected(null)}
  const select=(stream:Stream)=>{setSelected(stream);if(world!=='watchworld'&&worldOf(stream)!==world)setWorld(worldOf(stream))}
+ const enterTheatre=(stream:Stream)=>{
+  if(transitionLock.current)return
+  transitionLock.current=true
+  setTransition('cover')
+  window.setTimeout(()=>{
+   setSelected(stream)
+   setInRoom(true)
+   window.requestAnimationFrame(()=>setTransition('reveal'))
+   window.setTimeout(()=>{setTransition('idle');transitionLock.current=false},280)
+  },220)
+ }
+ const transitionOverlay=transition==='idle'?null:<div className={`ww-transition ${transition}`} aria-hidden="true"/>
  const activeWorld=world==='watchworld'?{...WATCHWORLD,count:total}:worlds.find(w=>w.id===world)??{id:'earth',name:'Earth',color:'#9146ff',count:0}
- if(inRoom&&selected)return <PlaybackPanel key={selected.login} login={selected.login}><Theatre stream={selected} name={me?.displayName??guest} onLeave={()=>setInRoom(false)}/></PlaybackPanel>
+ if(inRoom&&selected)return <><PlaybackPanel key={selected.login} login={selected.login}><Theatre stream={selected} name={me?.displayName??guest} account={me} onLeave={()=>setInRoom(false)}/></PlaybackPanel>{transitionOverlay}</>
  return <div className="home ww-explorer">
-  {world==='watchworld'?<WatchSphere name={me?.displayName} selected={selected} onSelect={select} onEnter={s=>{setSelected(s);setInRoom(true)}}/>:world==='earth'?<GeoWorld streams={streams} selected={selected} onSelect={select} onEnter={s=>{setSelected(s);setInRoom(true)}}/>:<Globe streams={streams} selected={selected} onSelect={select} world={activeWorld}/>}
+  {world==='watchworld'?<WatchSphere name={me?.displayName} selected={selected} onSelect={select} onEnter={enterTheatre}/>:world==='earth'?<GeoWorld streams={streams} selected={selected} onSelect={select} onEnter={enterTheatre}/>:<Globe streams={streams} selected={selected} onSelect={select} world={activeWorld}/>}
   <header className="top"><h1>Watchworld</h1><OmniSearch onWorld={()=>changeWorld('watchworld')} onStream={s=>{setWorld('watchworld');setSelected(s)}}/>
    {me?<><span className="who">{me.displayName}</span><button className="ww-logout" onClick={()=>void logout().then(()=>setMe(null)).catch(e=>setAuthError(e.message))}>Log out</button></>:<a className="login" href="/auth/twitch">Log in with Twitch</a>}
   </header>
@@ -53,7 +67,8 @@ export default function App() {
   <p className="ww-render-note">Up to 2,000 pins per page · zoom for more detail{search?' · search spans every world':''}</p>
   {selected&&<div className="card"><button className="x" onClick={()=>setSelected(null)} aria-label="Close">×</button><h2>{selected.displayName}</h2><p>{selected.title}</p><p className="meta">{selected.game} · {selected.viewers.toLocaleString()} watching · {placeLabel(selected,worlds)}</p>
    {selected.location?.source==='researched'&&<><p className="ww-researched">Researched, approximate · {selected.location.confidence} confidence · {selected.location.precision} level</p>{selected.location.sources?.length?<p className="ww-sources">{selected.location.sources.map((source,i)=><a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">Public source {i+1}</a>)}</p>:<small className="ww-researched">Model knowledge; no linked source. May be outdated.</small>}</>}
-   <button className="go" onClick={()=>setInRoom(true)}>Enter theatre</button>
+   <button className="go" onClick={()=>enterTheatre(selected)}>Enter theatre</button>
   </div>}
+  {transitionOverlay}
  </div>
 }

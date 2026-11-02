@@ -23,9 +23,9 @@ For real Twitch:
 
 Never commit `.env` or `server/data/`. Both are gitignored. Session cookies/tokens remain server-side in owner-only JSON; other persistent data uses SQLite in the private data directory. Keep `SESSION_SECRET` stable. This is a single-process development deployment.
 
-## All live streams, honest locations
+## Up to 5,000 live streams, honest locations
 
-The Helix poller traverses `first=100` pages to cursor exhaustion, retries GET requests on 429 using Twitch's reset headers, deduplicates logins, and publishes a full sweep atomically. The previous snapshot remains usable during a crawl or upstream failure. A saved cursor resumes after restart; a crawl older than 30 minutes restarts. Sweeps target a three-minute start cadence; a long sweep schedules the next one 15 seconds after finishing. Full Twitch-wide crawls can themselves take several minutes. Twitch's changing viewer ordering can cause repeats/omissions, so the result is a best-effort enumeration rather than an instantaneous snapshot of every channel.
+The Helix poller fetches `first=100` pages in viewer order until it has 5,000 unique channels, retries GET requests on 429 using Twitch's reset headers, and publishes the capped view atomically. This matches the walkable world's 5,000-stream limit and avoids waiting for Twitch's entire live catalog. The previous snapshot remains usable during a crawl or upstream failure. A saved cursor resumes after restart; a crawl older than 30 minutes restarts. Sweeps target a three-minute start cadence; a long sweep schedules the next one 15 seconds after finishing. Twitch's changing viewer ordering can cause repeats/omissions, so the result is a best-effort view rather than an instantaneous snapshot of every channel. If Twitch has fewer than 5,000 live channels, labeled demo streams can fill otherwise empty regions.
 
 The entire index lives on disk; HTTP and UI use bounded pages. `/api/streams` defaults to 3,000 rows, allows `limit=1..5000` and `offset`, and supports combined `planet`, `bbox`, `language`, `game` and `q` filters. Responses are viewer-sorted arrays with total/paging headers. Examples:
 
@@ -73,7 +73,7 @@ On entry, the **Start the stream** panel exposes the existing Twitch player. If 
 
 The shared plot is 120 m × 120 m; movement is limited to 9 m/s. Audience averages persist as an EMA; room capacity is fixed on creation at 12/24/60/128/240 seats. Seats remain exclusive. Waves, eight emotes, room chat and three-level crowd hype use the rate limits in `CONTRACT.md`.
 
-EventSub starts when an authenticated viewer joins, forwards channel chat, handles keepalives/reconnects and deduplicates notifications. It closes/deletes subscriptions when the room's subscribers leave. Room chat posts as the authenticated user and also broadcasts locally; Twitch echoes can appear separately. Anonymous visitors get a system login hint. Optional `HYPE_TO_TWITCH=1` relays one short hype message through an authorized participant, at most once per two minutes per channel; default off.
+EventSub starts when an authenticated viewer joins, forwards channel chat, chat notices, channel title/category changes, and stream start/end updates. The in-game phone keeps an Updates feed beside a Chat tab with room and Twitch chat; chat sending uses the existing room message. EventSub handles keepalives/reconnects and deduplicates notifications, then closes/deletes subscriptions when the room's subscribers leave. Room chat posts as the authenticated user and also broadcasts locally; Twitch echoes can appear separately. Anonymous visitors can use the room chat in mock mode but do not receive Twitch updates. Optional `HYPE_TO_TWITCH=1` relays one short hype message through an authorized participant, at most once per two minutes per channel; default off.
 
 ## Build and verify
 

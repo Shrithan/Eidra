@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Bubble, FloatingEmote, Player, WaveEvent } from './useRoom'
+import BlockyCharacter, { type CharacterMotion } from './BlockyCharacter'
 
 // The server stores x, y in 0..1; those map onto a fixed 120 m x 120 m plot (see CONTRACT.md).
 //   Z = 0 is the screen wall at the back of the auditorium, Z = wallZ is the front wall with the door,
@@ -99,6 +100,7 @@ function labelTexture(lines: string[]) {
 type Props = {
   login: string
   displayName: string
+  game: string
   players: Record<string, Player>
   selfId: string
   emotes: FloatingEmote[]
@@ -111,14 +113,24 @@ type Props = {
 }
 
 let twitchScript: Promise<void> | null = null
+const TWITCH_SCRIPT_TIMEOUT_MS = 6000
 /** Twitch's embed script lets us mute and unmute the player from code without reloading it. */
 const loadTwitch = () =>
   (twitchScript ??= new Promise<void>((resolve, reject) => {
     if ((window as any).Twitch?.Player) return resolve()
     const el = document.createElement('script')
     el.src = 'https://player.twitch.tv/js/embed/v1.js'
-    el.onload = () => resolve()
-    el.onerror = () => reject(new Error('Twitch embed script failed to load'))
+    let settled = false
+    const finish = (error?: Error) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeout)
+      if (error) reject(error)
+      else resolve()
+    }
+    const timeout = window.setTimeout(() => finish(new Error('Twitch embed script timed out')), TWITCH_SCRIPT_TIMEOUT_MS)
+    el.onload = () => finish((window as any).Twitch?.Player ? undefined : new Error('Twitch embed player is unavailable'))
+    el.onerror = () => finish(new Error('Twitch embed script failed to load'))
     document.head.appendChild(el)
   }))
 
@@ -131,6 +143,11 @@ export default function World(props: Props) {
   const playerBox = useRef<HTMLDivElement>(null)
   const player = useRef<any>(null)
   const [fallback, setFallback] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const [offline, setOffline] = useState(false)
+  const playbackActive = useRef(false)
+  const audio = useRef({ volume: 0.7, muted: true })
   const [aimed, setAimed] = useState(-1)
   const [locked, setLocked] = useState(false)
   const [lockless, setLockless] = useState(false)
@@ -139,10 +156,34 @@ export default function World(props: Props) {
   const layerRef = useRef<HTMLDivElement>(null)
   const outerRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
-  // The film starts by itself and has no controls. It plays muted from the street and the sound comes on once you are inside.
+  const startPlayback = () => {
+    const p = player.current
+    if (!p) return
+    setOffline(false)
+    try {
+      // A muted play request is allowed by browser autoplay policies; audio can be enabled after video starts.
+      p.setMuted(audio.current.muted)
+      p.setVolume(audio.current.volume)
+      p.play()
+    } catch { /* keep Twitch's own Play control available if scripted autoplay is blocked */ }
+  }
+  const publishPlayerState = (playing = playbackActive.current) => {
+    window.dispatchEvent(new CustomEvent('watchworld:player-state', { detail: { login: props.login, volume: audio.current.volume, muted: audio.current.muted, playing } }))
+  }
+  // Start muted for reliable autoplay; the player can unmute after playback begins inside the theatre.
   useEffect(() => {
     let dead = false
     setFallback(false)
+    setReady(false)
+    setPlaying(false)
+    setOffline(false)
+    playbackActive.current = false
+    const publishPlayback = (isPlaying: boolean) => {
+      if (dead) return
+      playbackActive.current = isPlaying
+      setPlaying(isPlaying)
+      window.dispatchEvent(new CustomEvent('watchworld:stream-playback', { detail: { login: props.login, playing: isPlaying } }))
+    }
     loadTwitch()
       .then(() => {
         const box = playerBox.current
@@ -156,14 +197,34 @@ export default function World(props: Props) {
           height: PLAYER_PX[1],
           autoplay: true,
           muted: true,
-          controls: false,
+          controls: true,
         })
         player.current = p
-        const apply = () => { try { p.setMuted(!insideRef.current); p.setVolume(1) } catch { /* not ready yet */ } }
-        p.addEventListener(Twitch.Player.READY, apply)
-        p.addEventListener(Twitch.Player.PLAYING, apply)
+        p.addEventListener(Twitch.Player.READY, () => {
+          setReady(true)
+          startPlayback()
+          // Safari can report READY before the video element accepts its first play request.
+          window.setTimeout(startPlayback, 250)
+        })
+        p.addEventListener(Twitch.Player.PLAYING, () => {
+          setOffline(false)
+          publishPlayback(true)
+          try { p.setMuted(audio.current.muted); p.setVolume(audio.current.volume) } catch { /* video can continue muted */ }
+          publishPlayerState(true)
+        })
+        p.addEventListener(Twitch.Player.PAUSE, () => publishPlayback(false))
+        p.addEventListener(Twitch.Player.PLAYBACK_BLOCKED, () => {
+          // Retry muted: browsers allow muted autoplay, while sound may still need a user choice.
+          if (!playbackActive.current) {
+            audio.current.muted = true
+            window.setTimeout(startPlayback, 100)
+            publishPlayback(false)
+          }
+        })
+        p.addEventListener(Twitch.Player.OFFLINE, () => { setOffline(true); publishPlayback(false) })
+        p.addEventListener(Twitch.Player.ONLINE, () => { setOffline(false); startPlayback() })
       })
-      .catch(() => { if (!dead) setFallback(true) })
+      .catch(() => { if (!dead) { setFallback(true); publishPlayback(false) } })
     return () => {
       dead = true
       player.current = null
@@ -172,7 +233,28 @@ export default function World(props: Props) {
   }, [props.login])
 
   useEffect(() => {
-    try { player.current?.setMuted(!inside) } catch { /* player not ready */ }
+    const command = (event: Event) => {
+      const detail = (event as CustomEvent<{ login?: string; action?: string; value?: number }>).detail
+      if (detail?.login !== props.login) return
+      if (detail.action === 'state') return publishPlayerState()
+      if (detail.action === 'play') { startPlayback(); return }
+      if (detail.action === 'mute') audio.current.muted = !audio.current.muted
+      if (detail.action === 'volume' && typeof detail.value === 'number') {
+        audio.current.volume = Math.max(0, Math.min(1, detail.value))
+        audio.current.muted = audio.current.volume === 0
+      }
+      try { player.current?.setMuted(audio.current.muted); player.current?.setVolume(audio.current.volume) } catch { /* player is still loading */ }
+      publishPlayerState()
+    }
+    window.addEventListener('watchworld:player-command', command)
+    return () => window.removeEventListener('watchworld:player-command', command)
+  }, [props.login])
+
+  useEffect(() => {
+    if (!inside && !audio.current.muted) return
+    audio.current.muted = !inside
+    try { player.current?.setMuted(audio.current.muted) } catch { /* player not ready */ }
+    publishPlayerState()
   }, [inside])
 
   return (
@@ -180,19 +262,19 @@ export default function World(props: Props) {
       {/* the stream player: a plain iframe behind the canvas, moved to match the 3D screen every frame */}
       <div className="screenlayer" ref={layerRef}>
         <div ref={outerRef} style={{ position: 'absolute', top: 0, left: 0, transformStyle: 'preserve-3d', pointerEvents: 'none' }}>
-          <div ref={innerRef} style={{ position: 'absolute', pointerEvents: 'none' }}>
-            {fallback ? (
-              <iframe
-                title="stream"
-                width={PLAYER_PX[0]}
-                height={PLAYER_PX[1]}
-                style={{ border: 0, display: 'block', background: '#000' }}
-                src={`https://player.twitch.tv/?channel=${encodeURIComponent(props.login)}&parent=${location.hostname}&muted=true&autoplay=true&controls=false`}
-                allow="autoplay; fullscreen"
-              />
-            ) : (
-              <div ref={playerBox} style={{ width: PLAYER_PX[0], height: PLAYER_PX[1], background: '#000' }} />
-            )}
+          <div ref={innerRef} style={{ position: 'absolute', pointerEvents: 'auto' }}>
+            <div ref={playerBox} style={{ display: fallback ? 'none' : 'block', width: PLAYER_PX[0], height: PLAYER_PX[1], background: '#000' }} />
+            <iframe
+              className={`stream-fallback ${fallback ? 'active' : ''}`}
+              title="Twitch stream fallback"
+              width={PLAYER_PX[0]}
+              height={PLAYER_PX[1]}
+              src={fallback ? `https://player.twitch.tv/?channel=${encodeURIComponent(props.login)}&parent=${location.hostname}&muted=true&autoplay=true&controls=true` : 'about:blank'}
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+            {!fallback && !ready && !offline && <div className="ww-stream-loading">Connecting to Twitch…</div>}
+            {offline && <div className="ww-stream-offline">This channel is offline</div>}
           </div>
         </div>
       </div>
@@ -205,7 +287,7 @@ export default function World(props: Props) {
         style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}
       >
         <fog attach="fog" args={['#0a0a12', 40, 160]} />
-        <Environment displayName={props.displayName} />
+        <Environment displayName={props.displayName} game={props.game} />
         <ScreenRig layerRef={layerRef} outerRef={outerRef} innerRef={innerRef} />
         <Seats players={props.players} sit={props.sit} aimed={aimed} objs={seatObjs} />
         <Cast {...props} onInside={setInside} seatObjs={seatObjs} onAim={setAimed} onLock={setLocked} onLockless={setLockless} />
@@ -220,13 +302,17 @@ export default function World(props: Props) {
   )
 }
 
-function Environment({ displayName }: { displayName: string }) {
+function Environment({ displayName, game }: { displayName: string; game: string }) {
   const marquee = useMemo(() => labelTexture(['NOW SHOWING', displayName.slice(0, 18)]), [displayName])
   const wall = <meshStandardMaterial color="#1b1428" roughness={0.9} />
   const { hallX, hallH, wallZ, screenW, screenH, screenY, firstRowZ } = L
   const sideW = hallX - 1.4
   const lintelH = hallH - 3.5
   const lightRange = Math.max(26, wallZ)
+  const speakerX = Math.min(hallX - 0.7, screenW / 2 + 1.5)
+  const panelCount = Math.max(3, Math.floor((wallZ - 8) / 7))
+  const panelSpacing = (wallZ - 12) / (panelCount - 1)
+  const ceilingBeams = Math.max(3, Math.floor(wallZ / 8))
   return (
     <group>
       <ambientLight intensity={0.55} />
@@ -248,17 +334,72 @@ function Environment({ displayName }: { displayName: string }) {
       {/* hall floor + ceiling */}
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, wallZ / 2]}>
         <planeGeometry args={[hallX * 2, wallZ]} />
-        <meshStandardMaterial color="#2b1f45" roughness={0.95} />
+        <meshStandardMaterial color="#211a2c" roughness={0.98} />
       </mesh>
       <mesh rotation-x={Math.PI / 2} position={[0, hallH, wallZ / 2]}>
         <planeGeometry args={[hallX * 2, wallZ]} />
-        <meshStandardMaterial color="#0f0b18" />
+        <meshStandardMaterial color="#0c0a12" roughness={0.92} />
       </mesh>
+
+      {/* plush carpet in the seating bowl and soft-lit aisle edges */}
+      <mesh rotation-x={-Math.PI / 2} position={[0, 0.012, (firstRowZ + wallZ) / 2]}>
+        <planeGeometry args={[hallX * 1.72, wallZ - firstRowZ + 3]} />
+        <meshStandardMaterial color="#17131e" roughness={1} />
+      </mesh>
+      {[-1, 1].map((side) => (
+        <group key={`aisle-${side}`}>
+          <mesh position={[side * (hallX - 0.8), 0.045, wallZ / 2]}>
+            <boxGeometry args={[0.08, 0.06, wallZ - 3]} />
+            <meshStandardMaterial color="#7c46bb" emissive="#6c35a8" emissiveIntensity={0.5} />
+          </mesh>
+          {Array.from({ length: L.rows }, (_, row) => (
+            <mesh key={row} position={[side * (hallX - 1.1), 0.09, firstRowZ + row * 3 + 1.15]}>
+              <boxGeometry args={[0.32, 0.09, 0.12]} />
+              <meshStandardMaterial color="#f4b76a" emissive="#e38b39" emissiveIntensity={1.1} />
+            </mesh>
+          ))}
+        </group>
+      ))}
 
       {/* back wall, side walls */}
       <mesh position={[0, hallH / 2, -0.2]}><boxGeometry args={[hallX * 2 + 0.8, hallH, 0.4]} />{wall}</mesh>
       <mesh position={[-hallX - 0.2, hallH / 2, wallZ / 2]}><boxGeometry args={[0.4, hallH, wallZ]} />{wall}</mesh>
       <mesh position={[hallX + 0.2, hallH / 2, wallZ / 2]}><boxGeometry args={[0.4, hallH, wallZ]} />{wall}</mesh>
+
+      {/* repeating acoustic panels, brass insets, and low-glare wall sconces */}
+      {Array.from({ length: panelCount }, (_, i) => {
+        const z = 6 + i * panelSpacing
+        return [-1, 1].map((side) => (
+          <group key={`wall-panel-${side}-${i}`} position={[side * (hallX - 0.12), 0, z]}>
+            <mesh position={[0, hallH * 0.53, 0]}>
+              <boxGeometry args={[0.2, Math.min(7.2, hallH * 0.52), 3.4]} />
+              <meshStandardMaterial color={i % 2 ? '#21182c' : '#261d33'} roughness={0.96} />
+            </mesh>
+            <mesh position={[side * -0.11, hallH * 0.53, -1.62]}>
+              <boxGeometry args={[0.06, Math.min(7.5, hallH * 0.54), 0.08]} />
+              <meshStandardMaterial color="#75518e" metalness={0.45} roughness={0.55} />
+            </mesh>
+            <mesh position={[side * -0.13, 3.2, 0]}>
+              <boxGeometry args={[0.08, 1.15, 0.18]} />
+              <meshStandardMaterial color="#d5a4ff" emissive="#9146ff" emissiveIntensity={1.6} />
+            </mesh>
+          </group>
+        ))
+      })}
+
+      {/* dark ceiling coffers with violet cove lights */}
+      {[-1, 1].map((side) => (
+        <mesh key={`cove-${side}`} position={[side * hallX * 0.58, hallH - 0.12, wallZ / 2]}>
+          <boxGeometry args={[0.09, 0.08, wallZ - 3]} />
+          <meshStandardMaterial color="#c49aff" emissive="#9146ff" emissiveIntensity={1.3} />
+        </mesh>
+      ))}
+      {Array.from({ length: ceilingBeams }, (_, i) => (
+        <group key={`ceiling-beam-${i}`} position={[0, hallH - 0.32, 4 + i * ((wallZ - 8) / Math.max(1, ceilingBeams - 1))]}>
+          <mesh><boxGeometry args={[hallX * 2 - 1, 0.38, 0.42]} /><meshStandardMaterial color="#17121e" metalness={0.18} roughness={0.85} /></mesh>
+          <mesh position={[0, -0.2, 0]}><boxGeometry args={[hallX * 1.45, 0.035, 0.08]} /><meshStandardMaterial color="#b389ee" emissive="#643c9c" emissiveIntensity={0.6} /></mesh>
+        </group>
+      ))}
 
       {/* front wall with the door */}
       <mesh position={[-(1.4 + sideW / 2), hallH / 2, wallZ]}><boxGeometry args={[sideW, hallH, 0.4]} />{wall}</mesh>
@@ -274,11 +415,93 @@ function Environment({ displayName }: { displayName: string }) {
         <meshBasicMaterial map={marquee} />
       </mesh>
 
-      {/* stage + screen backing */}
-      <mesh position={[0, 0.2, 2.2]}><boxGeometry args={[hallX * 2 - 1, 0.4, 3.4]} /><meshStandardMaterial color="#1a1226" /></mesh>
+      {/* low stage, framed screen portal, and speaker towers */}
+      <mesh position={[0, 0.2, 2.2]}><boxGeometry args={[hallX * 2 - 1, 0.4, 3.4]} /><meshStandardMaterial color="#17111f" roughness={0.84} /></mesh>
+      <mesh position={[0, 0.43, 0.66]}><boxGeometry args={[screenW + 1.3, 0.11, 0.2]} /><meshStandardMaterial color="#a576e8" emissive="#743bc3" emissiveIntensity={1.2} /></mesh>
       <mesh position={[0, screenY, 0.4]}><boxGeometry args={[screenW + 0.6, screenH + 0.5, 0.2]} /><meshStandardMaterial color="#05050a" /></mesh>
+      {[-1, 1].map((side) => (
+        <group key={`screen-wing-${side}`}>
+          <mesh position={[side * (screenW / 2 + 0.38), screenY, 0.57]}>
+            <boxGeometry args={[0.18, screenH + 0.72, 0.28]} />
+            <meshStandardMaterial color="#9e64e6" emissive="#783fc2" emissiveIntensity={1.35} />
+          </mesh>
+          <mesh position={[side * speakerX, screenY, 1.15]}>
+            <boxGeometry args={[1.2, Math.min(5.4, screenH * 0.56), 0.72]} />
+            <meshStandardMaterial color="#111018" roughness={0.72} metalness={0.12} />
+          </mesh>
+          {[-1, 1, 2].map((n) => (
+            <mesh key={n} position={[side * speakerX, screenY + n * 0.6, 0.77]}>
+              <boxGeometry args={[0.64, 0.06, 0.035]} />
+              <meshStandardMaterial color="#d8c6ee" emissive="#a66df2" emissiveIntensity={0.75} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <GenreSet game={game} hallX={hallX} hallH={hallH} wallZ={wallZ} firstRowZ={firstRowZ} />
     </group>
   )
+}
+
+type TheatreGenre = 'shooter' | 'rpg' | 'horror' | 'sports' | 'strategy' | 'creative' | 'chat'
+function theatreGenre(game: string): TheatreGenre {
+  const value = game.toLowerCase()
+  if (/call of duty|valorant|counter|fortnite|apex|overwatch|pubg|battlefield|deadlock/.test(value)) return 'shooter'
+  if (/elden|witcher|warcraft|monster hunter|final fantasy|souls|rpg|diablo|skyrim/.test(value)) return 'rpg'
+  if (/horror|resident evil|silent hill|phasmophobia|dead by daylight/.test(value)) return 'horror'
+  if (/sports|football|soccer|nba|fifa|racing|rocket league|wrestling/.test(value)) return 'sports'
+  if (/chess|civilization|strategy|dota|league of legends|teamfight/.test(value)) return 'strategy'
+  if (/minecraft|art|music|makers|software|creative/.test(value)) return 'creative'
+  return 'chat'
+}
+
+/** Small themed stage pieces make each game genre recognizable without changing the theatre's dark, calm lighting. */
+function GenreSet({ game, hallX, hallH, wallZ, firstRowZ }: { game: string; hallX: number; hallH: number; wallZ: number; firstRowZ: number }) {
+  const genre = theatreGenre(game)
+  const accent: Record<TheatreGenre, string> = { shooter: '#ef5e67', rpg: '#cf9b4a', horror: '#a34b6c', sports: '#42a7db', strategy: '#55b999', creative: '#d177e8', chat: '#9146ff' }
+  const color = accent[genre]
+  const sideZ = Math.max(7, firstRowZ - 3)
+  if (genre === 'shooter') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 0.7), 0, sideZ]}>
+      <mesh position={[0, 1.5, 0]}><boxGeometry args={[0.5, 3, 0.5]} /><meshStandardMaterial color="#20242c" metalness={.35} roughness={.55} /></mesh>
+      <mesh position={[0, 3.1, 0]}><boxGeometry args={[0.65, .11, .65]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.65} /></mesh>
+      <mesh position={[0, .45, .34]}><boxGeometry args={[.72, .38, .06]} /><meshStandardMaterial color="#14151b" emissive={color} emissiveIntensity={.22} /></mesh>
+    </group>)}
+  </group>
+  if (genre === 'rpg') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.1), 0, sideZ]}>
+      <mesh position={[0, 1.2, 0]}><cylinderGeometry args={[.58, .78, 2.4, 7]} /><meshStandardMaterial color="#3c3025" roughness={.9} /></mesh>
+      <mesh position={[0, 2.6, 0]}><sphereGeometry args={[.24, 12, 12]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} /></mesh>
+    </group>)}
+  </group>
+  if (genre === 'horror') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.2), 0, wallZ * .53]}>
+      <mesh position={[0, 2.4, 0]}><boxGeometry args={[.6, 4.8, .6]} /><meshStandardMaterial color="#1b1720" roughness={1} /></mesh>
+      <pointLight position={[0, 3.2, .2]} color={color} intensity={16} distance={6} />
+      <mesh position={[0, 3.2, .35]}><sphereGeometry args={[.13, 10, 10]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} /></mesh>
+    </group>)}
+  </group>
+  if (genre === 'sports') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.1), .38, sideZ]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.72, .07, 8, 18]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.7} /></mesh>
+      <mesh position={[0, -.3, 0]}><cylinderGeometry args={[.4, .5, .6, 12]} /><meshStandardMaterial color="#171b23" /></mesh>
+    </group>)}
+  </group>
+  if (genre === 'strategy') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.3), .5, sideZ]}>
+      <mesh rotation-x={-Math.PI / 2}><cylinderGeometry args={[.7, .7, .14, 4]} /><meshStandardMaterial color="#18312e" roughness={.8} /></mesh>
+      <mesh position={[0, .52, 0]}><cylinderGeometry args={[.18, .3, .95, 6]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.4} /></mesh>
+    </group>)}
+  </group>
+  if (genre === 'creative') return <group>
+    {[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.2), 1.25, sideZ]}>
+      <mesh><boxGeometry args={[1.25, 1.7, .16]} /><meshStandardMaterial color="#292034" roughness={.85} /></mesh>
+      <mesh position={[0, 0, .1]}><planeGeometry args={[.82, 1.24]} /><meshBasicMaterial color={color} transparent opacity={.68} /></mesh>
+    </group>)}
+  </group>
+  return <group>{[-1, 1].map(side => <group key={side} position={[side * (hallX - 1.25), .7, sideZ]}>
+    <mesh><sphereGeometry args={[.46, 14, 14]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.5} /></mesh>
+    <mesh position={[0, -.72, 0]}><cylinderGeometry args={[.34, .5, .9, 10]} /><meshStandardMaterial color="#231a2c" /></mesh>
+  </group>)}</group>
 }
 
 // CSS3D maths, the same as drei's <Html transform>: the stream player is an ordinary iframe that lives
@@ -350,7 +573,8 @@ function Seats({ players, sit, aimed, objs }: {
     <group>
       {Array.from({ length: L.seats }, (_, i) => {
         const [x, , z] = seatPos(i)
-        const color = taken.has(i) ? '#4a4558' : hover === i || aimed === i ? '#c9a5ff' : '#7a3df0'
+        const highlighted = hover === i || aimed === i
+        const color = taken.has(i) ? '#3c3547' : highlighted ? '#a96af4' : '#542e72'
         return (
           <group
             key={i}
@@ -360,8 +584,16 @@ function Seats({ players, sit, aimed, objs }: {
             onPointerOver={(e) => { e.stopPropagation(); setHover(i); document.body.style.cursor = taken.has(i) ? 'default' : 'pointer' }}
             onPointerOut={() => { setHover(-1); document.body.style.cursor = 'auto' }}
           >
-            <mesh position={[0, 0.25, 0]}><boxGeometry args={[0.8, 0.5, 0.8]} /><meshStandardMaterial color={color} roughness={0.7} /></mesh>
-            <mesh position={[0, 0.85, 0.34]}><boxGeometry args={[0.8, 0.8, 0.14]} /><meshStandardMaterial color={color} roughness={0.7} /></mesh>
+            <mesh position={[0, 0.12, 0.02]}><cylinderGeometry args={[0.22, 0.28, 0.18, 8]} /><meshStandardMaterial color="#201b28" metalness={0.5} roughness={0.58} /></mesh>
+            <mesh position={[0, 0.43, -0.06]}><boxGeometry args={[0.92, 0.24, 0.84]} /><meshStandardMaterial color={color} roughness={0.88} /></mesh>
+            <mesh position={[0, 0.95, 0.32]}><boxGeometry args={[0.92, 0.92, 0.2]} /><meshStandardMaterial color={color} roughness={0.9} /></mesh>
+            <mesh position={[0, 0.58, 0.432]}><boxGeometry args={[0.72, 0.07, 0.025]} /><meshStandardMaterial color={taken.has(i) ? '#51495b' : '#b87bff'} emissive={taken.has(i) ? '#000000' : '#773fc0'} emissiveIntensity={0.55} /></mesh>
+            {[-1, 1].map((side) => (
+              <mesh key={side} position={[side * 0.55, 0.59, 0.02]}>
+                <boxGeometry args={[0.16, 0.3, 0.72]} />
+                <meshStandardMaterial color="#25202c" metalness={0.24} roughness={0.7} />
+              </mesh>
+            ))}
           </group>
         )
       })}
@@ -684,7 +916,7 @@ function Cast({ players, selfId, emotes, bubbles, waves, move, sit, wave, onInsi
   )
 }
 
-/** A small articulated avatar: legs and arms swing with speed, sit pose, wave pose, name tag, speech bubble. */
+/** Theatre player wrapper: shared character rig plus name tag, speech bubble, and emotes. */
 function Avatar({ player, isSelf, selfPos, selfHeading, selfMoving, selfAir, emotes, bubble, waving }: {
   player: Player
   isSelf: boolean
@@ -697,17 +929,10 @@ function Avatar({ player, isSelf, selfPos, selfHeading, selfMoving, selfAir, emo
   waving: boolean
 }) {
   const g = useRef<THREE.Group>(null)
-  const torso = useRef<THREE.Group>(null)
-  const legL = useRef<THREE.Group>(null)
-  const legR = useRef<THREE.Group>(null)
-  const armL = useRef<THREE.Group>(null)
-  const armR = useRef<THREE.Group>(null)
+  const motion = useRef<CharacterMotion>({ alt: 0, vel: new THREE.Vector3(), seated: false, waving: false })
   const target = useMemo(() => new THREE.Vector3(), [])
   const prev = useMemo(() => new THREE.Vector3(), [])
   const inited = useRef(false)
-  const phase = useRef(0)
-  const clock = useRef(0)
-  const walk = useRef(0)
   const seated = player.seat >= 0
   const mine = emotes.filter((m) => m.playerId === player.id)
   const wavingRef = useRef(waving)
@@ -717,7 +942,9 @@ function Avatar({ player, isSelf, selfPos, selfHeading, selfMoving, selfAir, emo
     dt = Math.min(dt, 0.1)
     const grp = g.current
     if (!grp) return
-    clock.current += dt
+    motion.current.seated = seated
+    motion.current.waving = wavingRef.current
+    motion.current.alt = isSelf && selfAir.current ? 0.2 : 0
     let speed = 0
 
     if (isSelf) {
@@ -747,65 +974,12 @@ function Avatar({ player, isSelf, selfPos, selfHeading, selfMoving, selfAir, emo
       grp.rotation.y += diff * (1 - Math.exp(-10 * dt))
     }
 
-    walk.current += (Math.min(1, speed / 4) - walk.current) * (1 - Math.exp(-10 * dt))
-    phase.current += dt * (5 + speed * 0.9) * (walk.current > 0.05 ? 1 : 0)
-    const swing = Math.sin(phase.current) * 0.8 * walk.current
-    const t = clock.current
-
-    if (legL.current && legR.current) {
-      legL.current.rotation.x = seated ? Math.PI / 2 : swing
-      legR.current.rotation.x = seated ? Math.PI / 2 : -swing
-    }
-    const airborne = isSelf && selfAir.current
-    if (legL.current && legR.current && airborne) {
-      legL.current.rotation.x = -0.6
-      legR.current.rotation.x = 0.3
-    }
-    if (armL.current) {
-      armL.current.rotation.x = seated ? 0.3 : airborne ? 0 : -swing * 0.8
-      armL.current.rotation.z = airborne ? -0.8 : 0
-    }
-    if (armR.current) {
-      if (wavingRef.current) {
-        armR.current.rotation.x = 0
-        armR.current.rotation.z = Math.PI * 0.78 + Math.sin(t * 12) * 0.28
-      } else {
-        armR.current.rotation.z = airborne ? 0.8 : 0
-        armR.current.rotation.x = seated ? 0.3 : airborne ? 0 : swing * 0.8
-      }
-    }
-    if (torso.current) torso.current.position.y = Math.abs(Math.sin(phase.current)) * 0.05 * walk.current + Math.sin(t * 2) * 0.01
+    motion.current.vel.set(0, 0, speed)
   })
 
-  const body = player.color
   return (
     <group ref={g} visible={!(isSelf && seated)}>
-      <group ref={torso}>
-        <mesh position={[0, 1.0, 0]}>
-          <capsuleGeometry args={[0.24, 0.5, 6, 12]} />
-          <meshStandardMaterial color={body} roughness={0.6} />
-        </mesh>
-        <mesh position={[0, 1.72, 0]}>
-          <sphereGeometry args={[0.24, 16, 16]} />
-          <meshStandardMaterial color={body} roughness={0.5} />
-        </mesh>
-        <mesh position={[0, 1.74, -0.19]}>
-          <boxGeometry args={[0.3, 0.1, 0.1]} />
-          <meshStandardMaterial color="#111" />
-        </mesh>
-        <group ref={armL} position={[-0.34, 1.35, 0]}>
-          <mesh position={[0, -0.26, 0]}><boxGeometry args={[0.12, 0.52, 0.12]} /><meshStandardMaterial color={body} roughness={0.6} /></mesh>
-        </group>
-        <group ref={armR} position={[0.34, 1.35, 0]}>
-          <mesh position={[0, -0.26, 0]}><boxGeometry args={[0.12, 0.52, 0.12]} /><meshStandardMaterial color={body} roughness={0.6} /></mesh>
-        </group>
-      </group>
-      <group ref={legL} position={[-0.13, 0.62, 0]}>
-        <mesh position={[0, -0.3, 0]}><boxGeometry args={[0.17, 0.6, 0.17]} /><meshStandardMaterial color="#1c1830" roughness={0.7} /></mesh>
-      </group>
-      <group ref={legR} position={[0.13, 0.62, 0]}>
-        <mesh position={[0, -0.3, 0]}><boxGeometry args={[0.17, 0.6, 0.17]} /><meshStandardMaterial color="#1c1830" roughness={0.7} /></mesh>
-      </group>
+      <BlockyCharacter motion={motion} />
       <Html center position={[0, 2.3, 0]} distanceFactor={9} zIndexRange={[2000, 1000]} style={{ pointerEvents: 'none' }}>
         <div className="nametag">{isSelf ? 'you' : player.name}</div>
       </Html>

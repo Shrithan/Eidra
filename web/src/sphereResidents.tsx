@@ -48,7 +48,7 @@ export function useWorldPeople(layout: SphereLayout | null, myName: string, plan
   const [count, setCount] = useState(1)
   const roomRef = useRef<Room | null>(null)
   const lastSend = useRef(0)
-  const sim = useRef<null | { npcs: { r: Resident; plot: number; r0: number; ang: number; sign: number; speed: number; hop: number }[]; timer: ReturnType<typeof setInterval> }>(null)
+  const sim = useRef<null | { npcs: { r: Resident; plot: number; r0: number; ang: number; sign: number; speed: number; hop: number }[]; timer?: ReturnType<typeof setInterval> }>(null)
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
@@ -60,7 +60,7 @@ export function useWorldPeople(layout: SphereLayout | null, myName: string, plan
 
   const stopSim = useCallback(() => {
     if (!sim.current) return
-    clearInterval(sim.current.timer)
+    if (sim.current.timer) clearInterval(sim.current.timer)
     sim.current = null
     for (const id of [...residents.current.keys()]) if (id.startsWith('npc')) residents.current.delete(id)
   }, [])
@@ -68,6 +68,15 @@ export function useWorldPeople(layout: SphereLayout | null, myName: string, plan
   const startSim = useCallback(() => {
     const L = layoutRef.current
     if (!L || sim.current) return
+    if (!L.plots.length) {
+      // Empty genre planets have no building to gather simulated residents around.
+      // Keep the world usable and avoid indexing into a missing plot.
+      sim.current = { npcs: [] }
+      setStatus('simulated')
+      setCount(1)
+      push({ name: '', text: 'No live streams here yet. Try another planet.', system: true })
+      return
+    }
     // put the residents around busy buildings: pick buildings weighted by how many people watch them
     const weights = L.plots.map((p) => Math.log10(p.stream.viewers + 1) + 0.2)
     const total = weights.reduce((a, b) => a + b, 0)
@@ -96,6 +105,10 @@ export function useWorldPeople(layout: SphereLayout | null, myName: string, plan
 
   // ---- connect to the world room, fall back to simulated residents, keep retrying ----
   useEffect(() => {
+    setChat([])
+    setStatus('connecting')
+    setCount(1)
+    bubbles.current.clear()
     if (!layout) return
     let cancelled = false
     let retry: ReturnType<typeof setTimeout> | undefined
@@ -160,7 +173,7 @@ export function useWorldPeople(layout: SphereLayout | null, myName: string, plan
     bubbles.current.set('me', { text: t.slice(0, 90), until: performance.now() + 6500 })
     push({ name: myName, text: t, self: true })
     // a simulated resident answers now and then
-    if (sim.current && Math.random() < 0.6) {
+    if (sim.current?.npcs.length && Math.random() < 0.6) {
       const n = sim.current.npcs[Math.floor(Math.random() * sim.current.npcs.length)]
       const replies = ['welcome!', 'hey!', 'lol same', 'nice, add me', 'o/', 'where are you? I will come over', 'good to see new people']
       setTimeout(() => say0(n.r.id, n.r.name, replies[Math.floor(Math.random() * replies.length)]), 1400 + Math.random() * 1800)

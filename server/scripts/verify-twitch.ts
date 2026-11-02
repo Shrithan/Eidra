@@ -11,6 +11,7 @@ process.env.TWITCH_CLIENT_ID='test-client';process.env.TWITCH_CLIENT_SECRET='tes
 const originalFetch=globalThis.fetch;
 let liveViewers=5;
 let sent:any, polls=0, subscriptions=0, sends=0, deleted=0;
+const subscriptionRequests:any[]=[];
 globalThis.fetch=async(input:any,init?:RequestInit)=>{
   const url=String(input);
   if(url.startsWith('http://localhost:2567'))return originalFetch(input,init);
@@ -19,15 +20,16 @@ globalThis.fetch=async(input:any,init?:RequestInit)=>{
   if(url.includes('/helix/users'))return Response.json({data:[{id:'test999',login:'teststreamer',display_name:'TestStreamer',profile_image_url:'https://example.com/avatar.png'}]});
   if(url.includes('/helix/streams')){polls++;return Response.json({data:[{id:'stream999',user_id:'test999',user_login:'teststreamer',user_name:'TestStreamer',title:'Testing',game_name:'Test',viewer_count:liveViewers,language:'ja',thumbnail_url:'https://example.com/{width}x{height}'}]});}
   if(url.includes('/helix/eventsub/subscriptions') && init?.method==='DELETE'){deleted++;return new Response(null,{status:204});}
-  if(url.includes('/helix/eventsub/subscriptions')){subscriptions++;return Response.json({data:[{id:'sub1'}]});}
+  if(url.includes('/helix/eventsub/subscriptions')){subscriptions++;subscriptionRequests.push(JSON.parse(init!.body as string));return Response.json({data:[{id:'sub'+subscriptions}]});}
   if(url.includes('/helix/chat/messages')){sends++;sent=JSON.parse(init!.body as string);return Response.json({data:[{is_sent:true}]});}
   throw new Error('Unexpected network request '+url);
 };
 await import('../src/index.js');
 const {refreshStreams}=await import('../src/streams.js');await refreshStreams();
 const {db}=await import('../src/db.js');
-// Disable outbound EventSub here: real EventSub requires a live Twitch account.
-const {services}=await import('../src/theater.js');services.subscribe=()=>()=>{};
+// Capture room relays here; the bridge itself is tested below with a mocked EventSub socket.
+const {services}=await import('../src/theater.js');let roomRelay:(payload:unknown)=>void=()=>{};
+services.subscribe=(_channel,_user,relay)=>{roomRelay=relay;return ()=>{};};
 const base='http://localhost:2567';
 const request=(path:string,init?:RequestInit)=>fetch(base+path,init);
 let r=await request('/api/me');assert.equal(r.status,401);
@@ -44,32 +46,45 @@ streams=await request('/api/streams').then(r=>r.json());assert.equal(streams.fin
 assert.equal((await request('/api/me/location',{method:'POST',headers,body:JSON.stringify({city:'Bad',lat:999,lng:0})})).status,400);
 assert.equal((await request('/api/me/location',{method:'DELETE',headers:{...headers,Origin:'https://evil.example'}})).status,403);
 const client=new Client('ws://localhost:2567',{headers:{Cookie:cookie}});
-const room=await client.joinOrCreate('theater',{channel:'teststreamer',name:'spoof'});room.onMessage('room_chat',()=>{});await new Promise(r=>setTimeout(r,100));
+const room=await client.joinOrCreate('theater',{channel:'teststreamer',name:'spoof'});room.onMessage('room_chat',()=>{});const phoneEvents:any[]=[];room.onMessage('twitch_update',event=>phoneEvents.push(event));await new Promise(r=>setTimeout(r,100));
 assert.equal(room.state.players.get(room.sessionId).name,'TestStreamer');assert.equal(room.state.capacity,12);
+roomRelay({type:'update',category:'channel',title:'Channel updated',detail:'Title: New title'});await new Promise(r=>setTimeout(r,30));assert.deepEqual(phoneEvents,[{category:'channel',title:'Channel updated',detail:'Title: New title'}]);
+console.log('PASS authenticated theatre broadcasts Twitch updates to phone clients');
 liveViewers=100000;await refreshStreams(true);
 assert.equal(room.state.capacity,12);console.log('PASS room capacity stays fixed when audience history grows');room.send('chat',{text:'hello Twitch'});await new Promise(r=>setTimeout(r,100));assert.equal(sent.sender_id,'test999');assert.equal(sent.message,'hello Twitch');
 assert.equal((await request('/api/me/location',{method:'DELETE',headers})).status,204);
 streams=await request('/api/streams').then(r=>r.json());assert.equal(streams.find((s:any)=>s.login==='teststreamer').location,null);
 const {subscribeChat}=await import('../src/bridge.js');
-const sockets:EventEmitter[]=[];let relayed=0;
-const stop=subscribeChat('teststreamer',{id:'test999',login:'teststreamer',displayName:'TestStreamer',avatar:''},()=>relayed++,()=>{
+const sockets:EventEmitter[]=[];const relayed:any[]=[];
+const stop=subscribeChat('teststreamer',{id:'test999',login:'teststreamer',displayName:'TestStreamer',avatar:''},payload=>relayed.push(payload),()=>{
   const ws=new EventEmitter() as EventEmitter & {close:()=>void;terminate:()=>void};
   ws.close=()=>{ws.emit('close');};ws.terminate=ws.close;sockets.push(ws);
   setTimeout(()=>ws.emit('message',Buffer.from(JSON.stringify({metadata:{message_type:'session_welcome'},payload:{session:{id:'session1',keepalive_timeout_seconds:10}}}))),0);
   return ws as unknown as WebSocket;
 });
-await new Promise(r=>setTimeout(r,50));assert.equal(subscriptions,1);
-const event={metadata:{message_type:'notification',message_id:'event1',subscription_type:'channel.chat.message'},payload:{event:{broadcaster_user_id:'test999',chatter_user_name:'Viewer',message:{text:'live chat'},color:'#ff0000'}}};
-for(let i=0;i<2;i++)sockets[0].emit('message',Buffer.from(JSON.stringify(event)));
-await new Promise(r=>setTimeout(r,20));assert.equal(relayed,1);
+await new Promise(r=>setTimeout(r,100));assert.equal(subscriptions,5);
+assert.deepEqual(subscriptionRequests.map(s=>s.type),['channel.chat.message','channel.chat.notification','channel.update','stream.online','stream.offline']);
+const emitEvent=(subscription_type:string,message_id:string,event:any)=>sockets[0].emit('message',Buffer.from(JSON.stringify({metadata:{message_type:'notification',message_id,subscription_type},payload:{event:{broadcaster_user_id:'test999',...event}}})));
+emitEvent('channel.chat.message','event-chat',{chatter_user_name:'Viewer',message:{text:'live chat'},color:'#ff0000'});
+emitEvent('channel.chat.message','event-chat',{chatter_user_name:'Viewer',message:{text:'live chat'},color:'#ff0000'});
+emitEvent('channel.chat.notification','event-sub',{notice_type:'sub',system_message:'Viewer subscribed at Tier 1!'});
+emitEvent('channel.update','event-channel',{title:'New title',category_name:'Retro',language:'en'});
+emitEvent('stream.online','event-online',{type:'live'});
+emitEvent('stream.offline','event-offline',{});
+emitEvent('channel.update','event-other',{broadcaster_user_id:'somebody-else',title:'Ignored'});
+await new Promise(r=>setTimeout(r,30));assert.equal(relayed.length,5);
+assert.deepEqual(relayed[0],{type:'chat',user:'Viewer',text:'live chat',color:'#ff0000'});
+assert.deepEqual(relayed.slice(1).map((m:any)=>[m.category,m.title]),[['notification','New subscription'],['channel','Channel updated'],['stream','Stream started'],['stream','Stream ended']]);
+assert.equal(relayed[1].detail,'Viewer subscribed at Tier 1!');
+assert.match(relayed[2].detail,/Title: New title · Category: Retro · Language: en/);
 // A Twitch reconnect transfers the existing subscription instead of creating another.
 sockets[0].emit('message',Buffer.from(JSON.stringify({metadata:{message_type:'session_reconnect'},payload:{session:{reconnect_url:'wss://eventsub.wss.twitch.tv/reconnect'}}})));
-await new Promise(r=>setTimeout(r,40));assert.equal(sockets.length,2);assert.equal(subscriptions,1);
-stop();await new Promise(r=>setTimeout(r,30));assert.equal(deleted,1);
+await new Promise(r=>setTimeout(r,40));assert.equal(sockets.length,2);assert.equal(subscriptions,5);
+stop();await new Promise(r=>setTimeout(r,80));assert.equal(deleted,5);
 const {relayHype}=await import('../src/twitch.js');process.env.HYPE_TO_TWITCH='1';
 const beforeSends=sends;const identity={id:'test999',login:'teststreamer',displayName:'TestStreamer',avatar:''};
 await relayHype('teststreamer',[identity]);await relayHype('teststreamer',[identity]);assert.equal(sends-beforeSends,1);
-console.log('PASS EventSub reconnect transfer, final subscription cleanup, two-minute hype relay throttle');
+console.log('PASS EventSub chat, channel and stream updates; reconnect transfer; subscription cleanup; hype relay throttle');
 assert.equal((await request('/auth/logout',{method:'POST',headers})).status,204);assert.equal((await request('/api/me',{headers})).status,401);
 await room.leave();assert.ok(polls>0);
 console.log('PASS: simulated Helix, OAuth state/cookie, identity, city privacy/CRUD, CSRF, authenticated room identity, Twitch send, EventSub subscription/relay/deduplication, logout');

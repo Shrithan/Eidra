@@ -3,6 +3,7 @@ import { Client, Room } from 'colyseus.js'
 
 export type Player = { id: string; name: string; seat: number; x: number; y: number; yaw?: number; color: string }
 export type ChatLine = { id: number; kind: 'room' | 'twitch' | 'system'; name: string; text: string; color?: string }
+export type TwitchUpdate = { id: number; category: 'notification' | 'channel' | 'stream' | 'account'; title: string; detail: string; receivedAt: number }
 export type FloatingEmote = { id: number; playerId: string; emoji: string }
 export type WaveEvent = { id: number; playerId: string; targetId?: string }
 export type Bubble = { id: number; text: string }
@@ -28,6 +29,7 @@ export function useRoom(channel: string, name: string, capacityHint = 24) {
   playersRef.current = players
   const [selfId, setSelfId] = useState('me')
   const [chat, setChat] = useState<ChatLine[]>([])
+  const [updates, setUpdates] = useState<TwitchUpdate[]>([])
   const [emotes, setEmotes] = useState<FloatingEmote[]>([])
   const [waves, setWaves] = useState<WaveEvent[]>([])
   const [bubbles, setBubbles] = useState<Record<string, Bubble>>({})
@@ -38,6 +40,10 @@ export function useRoom(channel: string, name: string, capacityHint = 24) {
 
   const pushChat = useCallback((l: Omit<ChatLine, 'id'>) => {
     setChat((c) => [...c.slice(-80), { ...l, id: nextId() }])
+  }, [])
+
+  const pushUpdate = useCallback((u: Omit<TwitchUpdate, 'id' | 'receivedAt'>) => {
+    setUpdates((items) => [...items.slice(-39), { ...u, id: nextId(), receivedAt: Date.now() }])
   }, [])
 
   const pushEmote = useCallback((playerId: string, emoji: string) => {
@@ -141,6 +147,7 @@ export function useRoom(channel: string, name: string, capacityHint = 24) {
         })
         room.onMessage('twitch_chat', (m: { user: string; text: string; color?: string }) =>
           pushChat({ kind: 'twitch', name: m.user, text: m.text, color: m.color }))
+        room.onMessage('twitch_update', (m: Omit<TwitchUpdate, 'id' | 'receivedAt'>) => pushUpdate(m))
         room.onLeave(() => {
           if (roomRef.current === room) roomRef.current = null
           if (!cancelled) { goOfflineOnce(); scheduleRetry() }
@@ -162,7 +169,7 @@ export function useRoom(channel: string, name: string, capacityHint = 24) {
       roomRef.current?.leave()
       roomRef.current = null
     }
-  }, [channel, name, capacityHint, pushChat, pushEmote, pushWave, showBubble])
+  }, [channel, name, capacityHint, pushChat, pushEmote, pushWave, pushUpdate, showBubble])
 
   const sit = useCallback((seat: number) => {
     if (roomRef.current) return roomRef.current.send('sit', { seat })
@@ -193,5 +200,5 @@ export function useRoom(channel: string, name: string, capacityHint = 24) {
     showBubble('me', text)
   }, [name, pushChat, showBubble])
 
-  return { players, selfId, chat, emotes, waves, bubbles, hype, mode, capacity, sit, move, emote, wave, say }
+  return { players, selfId, chat, updates, emotes, waves, bubbles, hype, mode, capacity, sit, move, emote, wave, say }
 }
